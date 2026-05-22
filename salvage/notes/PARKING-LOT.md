@@ -23,5 +23,6 @@ Format: `- YYYY-MM-DD  one-line idea`. Group by theme.
 
 ## Tooling / workflow
 - 2026-05-20  Port voiceitt-transform from bash to Python — it's already 158 lines (most of it hand-rolled HTTP-status + jq error handling), shells out to python3 for realpath, and serve.py is already in the stack; ~50 lines of urllib.request would replace it cleanly. Reconsider when §1.5 multi-provider branching adds another fan-out.
+- 2026-05-22  Phase 0 cleanup via Raycast AI Commands at send-time (no code); defer Python transform module until a Slot-A-only need lands (Voiceitt correction round-trip, prompt-picker sidecar, in-page preview-and-edit)
 
 ## Misc
