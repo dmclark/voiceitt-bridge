@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Voiceitt Scratchpad</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <span>Voiceitt Scratchpad — dictate here, then trigger your Raycast hotkey.</span>
+    <span id="status" aria-live="polite" title="LLM transform status">idle</span>
+    <label id="ai-toggle-label" title="When checked, each dictated phrase is sent through the LLM transform. Off by default. ⌘↵ in the input pane runs a one-shot transform regardless.">
+      <input type="checkbox" id="ai-toggle"> AI
+    </label>
+    <button id="load" title="Load a local file (≤ 50 KB, UTF-8) into the input pane">Load…</button>
+    <button id="clear" title="Clear (⌘K)">Clear</button>
+    <!-- Hidden file picker driven by the Load… button. We can't use the
+         server's POST /load path here because browsers don't expose the
+         absolute filesystem path from <input type="file"> for security
+         reasons — so this path is intentionally browser-only and reads
+         the file via FileReader. The Raycast loader (which DOES know the
+         absolute path) is still the way to round-trip server-side state. -->
+    <input id="file-picker" type="file" style="display:none">
+  </header>
+  <div id="loaded-strip" title="Loaded via Raycast → 'Load File into Scratchpad'">
+    <span class="label">file</span><span id="loaded-path"></span>
+  </div>
+  <div class="pane">
+    <div class="pane-label">Dictated</div>
+    <textarea id="pad" autofocus placeholder="Start dictating with Voiceitt…"></textarea>
+  </div>
+  <div class="pane" id="pane-out">
+    <div class="pane-label">To be pasted</div>
+    <textarea id="pad-out"
+      placeholder="LLM-cleaned text appears here after each dictated phrase. Edit before sending if needed; ⌘↵ in the top pane re-runs the transform."></textarea>
+  </div>
+  <div id="faux-caret" aria-hidden="true"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
