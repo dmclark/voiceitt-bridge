@@ -5,7 +5,7 @@
 # @raycast.mode silent
 # @raycast.packageName Voiceitt
 # @raycast.icon 🎙️
-# @raycast.description Cleanup at send: copy from focused app (Voiceitt textarea), run through voiceitt-transform (fail-open to raw), then paste into the current iTerm tab. Sticky-Keys safe via cliclick. Does NOT press Return.
+# @raycast.description Cleanup at send: copy from focused app (Voiceitt textarea), run through voiceitt-transform (fail-open to raw), then write into the current iTerm tab via AppleScript `write text ... newline NO` — bypasses the clipboard and keystroke synthesis on the paste step. Does NOT press Return.
 
 set -e
 CLICLICK="/opt/homebrew/bin/cliclick"
@@ -68,29 +68,34 @@ else
   TO_PASTE="$CLEANED"
 fi
 
-# 7) Put the text we're actually going to paste onto the clipboard. This
-#    is the existing Phase 0 clipboard-ritual paste path; the next commit
-#    swaps iTerm specifically over to `tell ... write text ... newline NO`
-#    which sidesteps the clipboard entirely.
-printf '%s' "$TO_PASTE" | pbcopy
-
-# 8) Activate iTerm so the paste lands in the right app and the right tab.
-osascript <<'EOF'
+# 7) Write the cleaned (or raw, on fail-open) text directly into the
+#    current iTerm session via AppleScript. Per HANDOFF "Clipboard hygiene
+#    and paste strategies": `write text ... newline NO` is atomic, fast,
+#    supported by iTerm2's published AppleScript dictionary, and sidesteps
+#    both the clipboard and any keystroke synthesis on this paste step
+#    (so non-negotiables 1, 6-9 don't even come into play here).
+#
+#    The text is passed via the TO_PASTE env var and read back inside
+#    AppleScript with `system attribute "TO_PASTE"`. This avoids every
+#    shell-quoting / AppleScript-escaping pitfall for arbitrary text —
+#    embedded newlines, double quotes, backslashes, smart quotes, em
+#    dashes, code fences, all pass through verbatim.
+#
+#    `newline NO` is required (lesson 12); `newline YES` mangles embedded
+#    newlines. The user can press Return themselves when ready to submit
+#    to amp / claude / their shell.
+#
+#    Note: the clipboard at this point still holds the raw captured text
+#    from step 3, not the cleaned text. That is intentional — we never
+#    pollute the clipboard with the cleaned output on the iTerm path.
+TO_PASTE="$TO_PASTE" osascript <<'EOF'
 tell application "iTerm"
   activate
   tell current window
-    tell current session to select
+    tell current session
+      select
+      write text (system attribute "TO_PASTE") newline NO
+    end tell
   end tell
 end tell
 EOF
-
-# 9) Give iTerm a beat to take focus, then release modifiers again
-#    (activation can race with Sticky Keys re-latching Cmd).
-sleep 0.15
-"$CLICLICK" ku:cmd,alt,ctrl,shift,fn >/dev/null 2>&1 || true
-sleep 0.05
-
-# 10) Sticky-Keys-proof Cmd+V. Bracketed paste (default in modern iTerm +
-#     shells/REPLs incl. Amp CLI) keeps embedded newlines as literal text
-#     instead of executing each line.
-"$CLICLICK" kd:cmd w:60 t:v w:60 ku:cmd
