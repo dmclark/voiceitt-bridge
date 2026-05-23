@@ -11,9 +11,9 @@ editor (`VS Code`), a chat tool (`Slack`, `Discord`, `Messages`) -- anything tha
 
 ## Why
 
-Voiceitt only works in Chrome. Most writing happens outside the browser. [Raycast](https://www.raycast.com/) 2 does have dictation capabilities but does not support a typical speech.
+Voiceitt only works in Chrome. Most writing happens outside the browser. [Raycast 2](https://www.raycast.com/) does have dictation capabilities but does not support atypical speech.
 > **Status** This repo is the next-gen successor
-> to the [voiceitt-amp-bridge](https://www.github.com/dmclark/voiceitt-amp-bridge) prototype. The prototype is still
+> to the [voiceitt-amp-bridge](https://github.com/dmclark/voiceitt-amp-bridge) prototype. The prototype is still
 > load-bearing and running on `localhost:7531`; this repo is being
 > built up alongside it and will replace it incrementally. See
 > [HANDOFF.md](./HANDOFF.md) for the full vision and the Phase 0 / Phase 1
