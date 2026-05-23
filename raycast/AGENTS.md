@@ -1,7 +1,7 @@
 # AGENTS.md — `raycast/` conventions
 
 Raycast Script Commands (bash, with `@raycast.*` header metadata) and
-the Phase 0 `voiceitt-transform` cleanup script. The Raycast side
+the MVP `voiceitt-transform` cleanup script. The Raycast side
 stays Script Commands until prompt-picker / preferences work forces a
 flip to a Raycast Extension (HANDOFF answered open decision #2).
 
@@ -67,7 +67,7 @@ sleep 0.05
 modifier-release line is there because the obvious shorter version
 fails intermittently under load or under Sticky Keys. See lesson 8.
 
-## The Phase 0 cleanup-at-send flow
+## The MVP cleanup-at-send flow
 
 ```diagram
 focused app ──Cmd+A,Cmd+C──▶ clipboard ──pbpaste──▶ voiceitt-transform
@@ -91,8 +91,8 @@ empty output. Verify this explicitly when editing.
 | Bundle id | Target | Strategy | Touches clipboard? |
 |---|---|---|---|
 | `com.googlecode.iterm2` | iTerm2 | `iterm-write` — `tell application "iTerm2" to tell current session to write text "…" newline NO` | No |
-| `com.microsoft.VSCode` | VS Code | `clipboard-restore` (Phase 0: clipboard ritual; restore wrapper next PR) | Yes (transient) |
-| `com.tinyspeck.slackmacgap` | Slack | `clipboard-restore` (not wired in Phase 0) | Yes (transient) |
+| `com.microsoft.VSCode` | VS Code | `clipboard-restore` (MVP: clipboard ritual; restore wrapper next PR) | Yes (transient) |
+| `com.tinyspeck.slackmacgap` | Slack | `clipboard-restore` (not wired in MVP) | Yes (transient) |
 | *anything else* | (add per target) | `clipboard-restore` default | Yes (transient) |
 
 When adding a target: copy `send-to-vscode.sh`, change

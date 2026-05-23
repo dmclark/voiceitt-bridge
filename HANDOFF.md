@@ -28,14 +28,14 @@ self-corrections honored, list formatting, light grammar fixes — but
 never executed as instructions, and always with a fail-open path so
 the LLM is a soft polish, not a hard dependency.
 
-> **Decision (Phase 0 / Phase 1 split):**
+> **Decision (MVP / post-MVP split):**
 >
-> - **Phase 0 — ships first, zero Python code.** Cleanup runs as a **Raycast AI Command** invoked from each `send-to-*` hotkey. The command's prompt template wraps `{clipboard}` in `<TRANSCRIPT>…</TRANSCRIPT>` and carries the `salvage/prompts/default.md` instructions; the existing sentinel + cliclick paste ritual then drops the cleaned text into the target app. This carries the cleanup load for as long as we need it to.
-> - **Phase 1 — deferred.** The Python transform module described in the rest of this doc (FastAPI `/transform` + pluggable provider, prompt loader, framing helper, fail-open contract) lands when *Slot-A-only* capabilities — ones that fundamentally require the in-page lifecycle, not the send-time path — become worth the build cost. The **primary triggers are all in-page UX wins, each genuinely valuable on its own and any one sufficient to justify the module:** (1) a **prompt-picker / active-prompt sidecar** in the scratchpad header so the user can switch cleanup styles per session without leaving the dictation flow; (2) **in-page preview-and-edit** of the cleaned text before the send-to-* hotkey fires; (3) **per-utterance observability / diff UI** showing raw vs. cleaned (essential when the LLM "helpfully" rewrites something the user meant literally). A **secondary, long-shot trigger** is the **Voiceitt correction feedback loop**: round-tripping raw and cleaned transcripts back to Voiceitt for personalised model training. That's structurally impossible from a Raycast AI Command — by the time `{clipboard}` is populated, the original Voiceitt browser context is gone — so the in-page module is the only place this *could* land. But it depends on Voiceitt exposing a programmatic correction-ingestion surface, which they do not today and may never; treat it as a happy bonus if it ever materialises, not as the reason to build.
+> - **MVP — ships first, zero Python code.** Cleanup runs as a **Raycast AI Command** invoked from each `send-to-*` hotkey. The command's prompt template wraps `{clipboard}` in `<TRANSCRIPT>…</TRANSCRIPT>` and carries the `salvage/prompts/default.md` instructions; the existing sentinel + cliclick paste ritual then drops the cleaned text into the target app. This carries the cleanup load for as long as we need it to.
+> - **post-MVP — deferred.** The Python transform module described in the rest of this doc (FastAPI `/transform` + pluggable provider, prompt loader, framing helper, fail-open contract) lands when *Slot-A-only* capabilities — ones that fundamentally require the in-page lifecycle, not the send-time path — become worth the build cost. The **primary triggers are all in-page UX wins, each genuinely valuable on its own and any one sufficient to justify the module:** (1) a **prompt-picker / active-prompt sidecar** in the scratchpad header so the user can switch cleanup styles per session without leaving the dictation flow; (2) **in-page preview-and-edit** of the cleaned text before the send-to-* hotkey fires; (3) **per-utterance observability / diff UI** showing raw vs. cleaned (essential when the LLM "helpfully" rewrites something the user meant literally). A **secondary, long-shot trigger** is the **Voiceitt correction feedback loop**: round-tripping raw and cleaned transcripts back to Voiceitt for personalised model training. That's structurally impossible from a Raycast AI Command — by the time `{clipboard}` is populated, the original Voiceitt browser context is gone — so the in-page module is the only place this *could* land. But it depends on Voiceitt exposing a programmatic correction-ingestion surface, which they do not today and may never; treat it as a happy bonus if it ever materialises, not as the reason to build.
 >
-> Treat the rest of this document's Python-transform sections as the *Phase 1 destination*, not Phase 0 work. See the 2026-05-22 entry in `salvage/notes/PARKING-LOT.md` for the sequencing note.
+> Treat the rest of this document's Python-transform sections as the *post-MVP destination*, not MVP work. See the 2026-05-22 entry in `salvage/notes/PARKING-LOT.md` for the sequencing note.
 
-#### Phase 0 first-PR scope
+#### MVP first-PR scope
 
 Concretely, the first PR in this repo should do the following — and **only** the following:
 
@@ -45,14 +45,14 @@ Concretely, the first PR in this repo should do the following — and **only** t
     - `salvage/bridge/{dictate.html, script.js, styles.css}` → `web/{index.html, script.js, styles.css}` (rename only; the separation-of-files convention is already satisfied)
     - `salvage/scripts/{send-to-*.sh, open-voiceitt.sh, load-file-to-scratchpad.sh}` → `raycast/` (unchanged)
     - `salvage/snippets/cliclick-paste-ritual.md` is the byte-for-byte reference any new `send-to-*` code must match.
-3. **Land the Phase 0 cleanup-at-send path.** Two acceptable shapes — pick whichever closes a clean user-flow loop, document the choice in `README.md`:
+3. **Land the MVP cleanup-at-send path.** Two acceptable shapes — pick whichever closes a clean user-flow loop, document the choice in `README.md`:
     - **(a) Raycast AI Command** wrapping `{clipboard}` in `<TRANSCRIPT>…</TRANSCRIPT>` and pulling rules from `prompts/default.md`. Validate against current Raycast docs that the invocation surface actually round-trips cleanly back into the paste step — AI Commands return results into Raycast's UI, not back to a calling script, so the end-to-end ergonomics need to work out.
     - **(b) Carry `salvage/scripts/voiceitt-transform` forward verbatim** into `raycast/` and have the `send-to-*.sh` commands shell out to it. ~150 lines of bash + curl + jq, already proven, no Raycast dependency. This is the safe fallback if (a) doesn't close cleanly.
 4. **Implement the iTerm paste-strategy win** (per "Clipboard hygiene and paste strategies" below): replace the clipboard ritual in `raycast/send-to-iterm.sh` with `tell application "iTerm2" to tell current session to write text "…" newline NO`. Other targets keep the existing clipboard ritual for this PR.
 5. **Document the zero-code clipboard-hygiene mitigation in `README.md`:** instruct the user to add Raycast to **Settings → Extensions → Clipboard History → Excluded Apps**.
-6. **Conventional Commits, topic branch** (e.g. `feat/phase-0-scaffold`), one logical change per commit. **Do not push** without asking.
+6. **Conventional Commits, topic branch** (e.g. `feat/mvp-scaffold`), one logical change per commit. **Do not push** without asking.
 
-Explicitly **out of scope** for this PR: FastAPI app, `src/voiceitt_bridge/`, `pyproject.toml`, `tests/`, the `clipboard-restore` save-and-restore wrapper (next PR), any Raycast Extension work, prompt-picker UI. All of these come later — most of them in Phase 1.
+Explicitly **out of scope** for this PR: FastAPI app, `src/voiceitt_bridge/`, `pyproject.toml`, `tests/`, the `clipboard-restore` save-and-restore wrapper (next PR), any Raycast Extension work, prompt-picker UI. All of these come later — most of them in post-MVP.
 
 Before opening the PR, surface for the user:
 - The (a) vs (b) decision in step 3, with your recommendation.
@@ -403,9 +403,9 @@ evidence):
 
 **Phased rollout:**
 
-1. **Phase 0, zero code:** add Raycast itself to Clipboard History's
+1. **MVP, zero code:** add Raycast itself to Clipboard History's
    Excluded Apps. May resolve the visible problem entirely.
-2. **Phase 0 or 1, small effort, big win:** implement the
+2. **MVP or 1, small effort, big win:** implement the
    `iterm-write` branch in `pasteIntoApp`. Retires the
    highest-volume polluter and improves reliability simultaneously.
 3. **Whenever the clipboard-paste path next gets touched:** wrap
@@ -569,7 +569,7 @@ These are not for the AI to decide unilaterally. Ask before committing:
    pluggable, or actually ship a second provider (Anthropic, OpenAI,
    local Ollama) in v0? The parking lot flagged "pluggable" as worth
    doing but did not commit to a second provider.
-> a: Start Gemini-only and design for pluggable -- this is not part of phase 0 anyway
+> a: Start Gemini-only and design for pluggable -- this is not part of MVP anyway
 4. **Prompt picker design.** ROADMAP §1.2/§1.4 in the old repo
    sketched a picker + active-prompt sidecar. Does the user want a
    Raycast Extension preference UI, an in-page dropdown in the
