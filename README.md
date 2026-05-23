@@ -16,7 +16,7 @@ Voiceitt only works in Chrome. Most writing happens outside the browser. [Raycas
 > to the [voiceitt-amp-bridge](https://github.com/dmclark/voiceitt-amp-bridge) prototype. The prototype is still
 > load-bearing and running on `localhost:7531`; this repo is being
 > built up alongside it and will replace it incrementally. See
-> [HANDOFF.md](./HANDOFF.md) for the full vision and the Phase 0 / Phase 1
+> [HANDOFF.md](./HANDOFF.md) for the full vision and the MVP / post-MVP
 > split.
 
 ---
@@ -31,19 +31,19 @@ voiceitt-bridge/
 ├── prompts/          ← LLM system prompts (cleanup, …)
 ├── web/              ← scratchpad page (vanilla HTML/CSS/JS, no build step)
 ├── raycast/          ← Raycast Script Commands + the cleanup transform
-├── notes/            ← parking lot, design notes (empty in Phase 0)
-├── scripts/          ← dev convenience (empty in Phase 0)
+├── notes/            ← parking lot, design notes (empty in MVP)
+├── scripts/          ← dev convenience (empty in MVP)
 └── salvage/          ← verbatim artifacts from the prototype; reference only
 ```
 
 `src/voiceitt_bridge/` (FastAPI app, prompt loader, framing module,
-pluggable providers) and `tests/` arrive in Phase 1. Phase 0
+pluggable providers) and `tests/` arrive in post-MVP. MVP
 deliberately ships **no Python**.
 
-## The Phase 0 cleanup path
+## The MVP cleanup path
 
-This repo's Phase 0 takes the **carry-`voiceitt-transform`-forward**
-path (option (b) in HANDOFF.md §"Phase 0 first-PR scope"). Each
+This repo's MVP takes the **carry-`voiceitt-transform`-forward**
+path (option (b) in HANDOFF.md §"MVP first-PR scope"). Each
 `send-to-*` Raycast hotkey:
 
 ```diagram
@@ -69,14 +69,14 @@ path (option (b) in HANDOFF.md §"Phase 0 first-PR scope"). Each
 
 The in-page AI toggle in `web/script.js` is carried forward unchanged
 but stays **off by default** (non-negotiable 5); the send-time cleanup
-above is the canonical Phase 0 cleanup path. When Phase 1 lands the
+above is the canonical MVP cleanup path. When post-MVP lands the
 FastAPI `/transform` module and the in-page prompt-picker /
 preview-and-edit UI, the in-page path will become canonical again.
 
 ## Cleanup prompt
 
 The cleanup is driven by a single system prompt at
-[`prompts/default.md`](./prompts/default.md). For Phase 0 this prompt
+[`prompts/default.md`](./prompts/default.md). For MVP this prompt
 is **fixed** — no in-page picker, no per-session override, no
 swappable rule sets. The full prompt is reproduced below so you can
 see exactly what `voiceitt-transform` is asking Gemini to do
@@ -97,12 +97,12 @@ copy):
 - Output only the cleaned text.
 - Don't add any information not available in the `<TRANSCRIPT>` text ever.
 ```
-The in-page prompt picker / active-prompt sidecar is a Phase 1
-trigger — see [HANDOFF.md](./HANDOFF.md) "Phase 0 / Phase 1 split".
+The in-page prompt picker / active-prompt sidecar is a post-MVP
+trigger — see [HANDOFF.md](./HANDOFF.md) "MVP / post-MVP split".
 
 ## One-time setup
 
-Phase 0 piggybacks on the prototype's runtime config dir
+MVP piggybacks on the prototype's runtime config dir
 (`~/.config/voiceitt-bridge/`), the prototype's `serve.py` running on
 port 7531, and the prototype's `~/.config/voiceitt-bridge/env` file
 holding `GOOGLE_API_KEY`. The new `raycast/` scripts here are not yet
@@ -127,7 +127,7 @@ When you do flip:
 
 `voiceitt-transform` calls Google's Gemini API to clean up dictated
 text. **It will not run without `GOOGLE_API_KEY` in its environment**
-— this is the most common Phase 0 setup failure. Get a key at
+— this is the most common MVP setup failure. Get a key at
 <https://aistudio.google.com/apikey>. Two supported ways to provide
 it, in order of preference:
 
@@ -149,8 +149,8 @@ it, in order of preference:
 If the key is missing, expired, or invalid, `voiceitt-transform`
 exits non-zero and the `send-to-*` script falls back to pasting the
 raw transcript (fail-open per non-negotiable 4). **There is no
-user-visible indication** that this happened in Phase 0 — see
-[Known limitations](#known-limitations-phase-0) below. The
+user-visible indication** that this happened in MVP — see
+[Known limitations](#known-limitations-mvp) below. The
 transform's stderr is appended to
 `~/.config/voiceitt-bridge/server.log`; `tail -n 50` it if a paste
 looks unexpectedly raw.
@@ -171,7 +171,7 @@ the clipboard entirely, further reducing pollution. The save-and-restore
 wrapper for the remaining clipboard-using targets is deferred to a
 later PR.
 
-## Hotkeys (Phase 0)
+## Hotkeys (MVP)
 
 | Script | Purpose | Paste strategy |
 |---|---|---|
@@ -181,7 +181,7 @@ later PR.
 | `raycast/send-to-vscode.sh` | Cleanup-at-send → VS Code via clipboard + cliclick Cmd+V | clipboard (transient) |
 
 Other targets (Slack, Notes, browser textareas) are not yet wired in
-Phase 0 — add by copying `raycast/send-to-vscode.sh`, changing
+MVP — add by copying `raycast/send-to-vscode.sh`, changing
 `TARGET_BUNDLE_ID`, and the `@raycast.title`. Each new target needs
 its own Automation-permission prompt the first time it fires
 (lesson 14).
@@ -194,14 +194,14 @@ list):
 - FastAPI app, `src/voiceitt_bridge/`, `pyproject.toml`, `tests/`
 - The `clipboard-restore` save-and-restore wrapper around the
   clipboard ritual (next PR)
-- Any Raycast Extension work (Phase 1+, see HANDOFF "AI Extensions vs
+- Any Raycast Extension work (post-MVP+, see HANDOFF "AI Extensions vs
   per-target hotkey commands")
-- Prompt-picker UI (Phase 1+)
-- Multi-provider LLM dispatch (Phase 1+; design-time only)
+- Prompt-picker UI (post-MVP+)
+- Multi-provider LLM dispatch (post-MVP+; design-time only)
 
-## Known limitations (Phase 0)
+## Known limitations (MVP)
 
-These gaps are intentional for Phase 0; each is addressed by Phase 1
+These gaps are intentional for MVP; each is addressed by post-MVP
 work described in [HANDOFF.md](./HANDOFF.md).
 
 - **No user-visible feedback when cleanup fails.** If
@@ -212,16 +212,16 @@ work described in [HANDOFF.md](./HANDOFF.md).
   sign is that the pasted text is verbatim instead of polished.
   Check `~/.config/voiceitt-bridge/server.log` for the transform's
   stderr if a paste looks unexpectedly raw. A status indicator in
-  the scratchpad header is parked for Phase 1.
+  the scratchpad header is parked for post-MVP.
 - **No way to switch cleanup prompts at runtime.**
   `prompts/default.md` is always used; see [Cleanup prompt](#cleanup-prompt)
-  above. The prompt-picker sidecar is a Phase 1 trigger.
+  above. The prompt-picker sidecar is a post-MVP trigger.
 - **No in-page preview-and-edit before sending.** The hotkey fires
   immediately; you can't see or edit the cleaned text between
-  dictating and pasting. Phase 1.
+  dictating and pasting. post-MVP.
 - **No diff UI showing raw vs. cleaned.** When the LLM rewrites
   something you meant literally, today's only recourse is to
-  manually re-dictate. Phase 1.
+  manually re-dictate. post-MVP.
 - **Clipboard pollution from non-iTerm targets.** The
   `clipboard-restore` save-and-restore wrapper for VS Code / Slack
   / default targets is deferred to the next PR. Mitigate today by
@@ -230,7 +230,7 @@ work described in [HANDOFF.md](./HANDOFF.md).
 ## Reference material
 
 - [HANDOFF.md](./HANDOFF.md) — the spec, non-negotiables, and the
-  Phase 0 / Phase 1 split.
+  MVP / post-MVP split.
 - [salvage/README.md](./salvage/README.md) — index of verbatim
   artifacts carried over from the prototype.
 - [salvage/notes/LESSONS-LEARNED.md](./salvage/notes/LESSONS-LEARNED.md)

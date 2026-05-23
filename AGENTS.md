@@ -4,7 +4,7 @@ You are working on the **voiceitt-bridge** repo: the next-gen
 successor to the `voiceitt-amp-bridge` prototype. Before making any
 non-trivial change, read these in order:
 
-1. [`HANDOFF.md`](./HANDOFF.md) — the spec, the Phase 0 / Phase 1 split,
+1. [`HANDOFF.md`](./HANDOFF.md) — the spec, the MVP / post-MVP split,
    the non-negotiables, and the answered open decisions. Re-read the
    non-negotiables list before touching anything in `raycast/`,
    `web/`, or (when it exists) `src/`.
@@ -21,10 +21,10 @@ non-trivial change, read these in order:
   the result of a debugging session you didn't have to suffer through.
   If you think a non-negotiable should be revisited, surface it
   explicitly — don't quietly route around it.
-- **Phase 0 ≠ Phase 1.** Phase 0 ships *no Python*. If you find
+- **MVP ≠ post-MVP.** MVP ships *no Python*. If you find
   yourself wanting to write FastAPI routes, a `pyproject.toml`, a
   `src/voiceitt_bridge/` package, or any tests under `tests/`, stop
-  and check whether the request is actually Phase 1 work.
+  and check whether the request is actually post-MVP work.
 - **Salvage is verbatim reference, not a mutable directory.** Read
   from `salvage/` freely; do not edit it.
 - **The prototype on `localhost:7531` is load-bearing.** The user is
@@ -38,14 +38,14 @@ non-trivial change, read these in order:
 | Concern | Location |
 |---|---|
 | User-facing setup, daily flow, hotkey table | [`README.md`](./README.md) |
-| Vision, non-negotiables, open decisions, Phase 0 / Phase 1 split | [`HANDOFF.md`](./HANDOFF.md) |
+| Vision, non-negotiables, open decisions, MVP / post-MVP split | [`HANDOFF.md`](./HANDOFF.md) |
 | LLM system prompts | [`prompts/`](./prompts/) |
 | Scratchpad page (vanilla HTML/CSS/JS) | [`web/`](./web/) + [`web/AGENTS.md`](./web/AGENTS.md) |
-| Raycast Script Commands + Phase 0 transform | [`raycast/`](./raycast/) + [`raycast/AGENTS.md`](./raycast/AGENTS.md) |
+| Raycast Script Commands + MVP transform | [`raycast/`](./raycast/) + [`raycast/AGENTS.md`](./raycast/AGENTS.md) |
 | Carried-over reference artifacts | [`salvage/`](./salvage/) |
-| Parking lot, design notes (mostly Phase 1+) | [`notes/`](./notes/) |
+| Parking lot, design notes (mostly post-MVP+) | [`notes/`](./notes/) |
 | Dev convenience scripts | [`scripts/`](./scripts/) |
-| Python web app, providers, tests | *(Phase 1, does not exist yet)* |
+| Python web app, providers, tests | *(post-MVP, does not exist yet)* |
 
 ## Verification expectations
 
@@ -57,7 +57,7 @@ non-trivial change, read these in order:
   the Voiceitt-write detection path (lesson 3) still triggers, the
   faux caret (lessons 4/27/28) still tracks, and AI-off remains the
   default (non-negotiable 5).
-- **Phase 1 (when it lands):** unit + integration tests on
+- **post-MVP (when it lands):** unit + integration tests on
   everything under `src/`; coverage is non-optional because the bash
   prototype had none and this is the moment to fix that.
 
