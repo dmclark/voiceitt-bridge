@@ -30,15 +30,19 @@ voiceitt-bridge/
 ├── AGENTS.md         ← root routing doc for AI assistants
 ├── prompts/          ← LLM system prompts (cleanup, …)
 ├── web/              ← scratchpad page (vanilla HTML/CSS/JS, no build step)
+├── bridge/           ← stdlib HTTP server (serve.py) — serves web/, owns the four endpoints
 ├── raycast/          ← Raycast Script Commands + the cleanup transform
 ├── notes/            ← parking lot, design notes (empty in MVP)
-├── scripts/          ← dev convenience (empty in MVP)
+├── scripts/          ← dev convenience (toggle, install)
 └── salvage/          ← verbatim artifacts from the prototype; reference only
 ```
 
 `src/voiceitt_bridge/` (FastAPI app, prompt loader, framing module,
-pluggable providers) and `tests/` arrive in post-MVP. MVP
-deliberately ships **no Python**.
+pluggable providers) and `tests/` arrive in post-MVP. **"No Python"
+in MVP means no Python *architecture* — no FastAPI, no
+`pyproject.toml`, no `src/` package, no `tests/`.** A single ~315-line
+stdlib script under `bridge/` is allowed (and required, since
+Voiceitt won't attach to `file://`).
 
 ## The MVP cleanup path
 
@@ -102,26 +106,63 @@ trigger — see [HANDOFF.md](./HANDOFF.md) "MVP / post-MVP split".
 
 ## One-time setup
 
-MVP piggybacks on the prototype's runtime config dir
-(`~/.config/voiceitt-bridge/`), the prototype's `serve.py` running on
-port 7531, and the prototype's `~/.config/voiceitt-bridge/env` file
-holding `GOOGLE_API_KEY`. The new `raycast/` scripts here are not yet
-symlinked into Raycast — the prototype's are. **Do not switch hotkey
-bindings to these scripts until the user explicitly chooses to flip.**
+MVP is self-contained — the repo ships its own
+`bridge/serve.py` (a stdlib HTTP server serving `web/` on port 7531),
+so a net-new user doesn't need any prior version of this project
+installed. The runtime config dir `~/.config/voiceitt-bridge/`
+still holds the env file (`GOOGLE_API_KEY`) and the rolling
+`server.log`, but `serve.py` itself lives in the repo.
 
-When you do flip:
+Prerequisites (install before first use):
 
-1. `brew install cliclick` (Apple Silicon path
-   `/opt/homebrew/bin/cliclick` is hard-coded in the scripts).
-2. Make `GOOGLE_API_KEY` available to `voiceitt-transform` — see the
-   [GOOGLE_API_KEY](#google_api_key) section immediately below.
-3. Symlink `raycast/*.sh` and `raycast/voiceitt-transform` into your
-   Raycast Script Commands directory.
+- **macOS** (the cliclick / AppleScript / iTerm-AppleScript bits are macOS-only).
+- **[Homebrew](https://brew.sh)** — for installing the rest.
+- **`cliclick`** — `brew install cliclick`. Apple Silicon path
+  `/opt/homebrew/bin/cliclick` is hard-coded in the Raycast scripts.
+- **`jq`** — `brew install jq`. Used by `voiceitt-transform`.
+- **Python 3** — system-provided on recent macOS (`python3 --version`).
+  The bridge server is stdlib-only — no `pip install` step.
+- **[Raycast](https://www.raycast.com)** — the hotkey runtime.
+- **[Google Chrome](https://www.google.com/chrome/)** — Voiceitt is Chrome-only.
+- **[Voiceitt Chrome extension](https://chromewebstore.google.com/)** — search "Voiceitt".
+- **`GOOGLE_API_KEY`** — see [GOOGLE_API_KEY](#google_api_key) below.
+
+One-time setup (manual; the planned `scripts/install.sh` will fold
+most of this into one command):
+
+1. `brew install cliclick jq` (Homebrew handles both at once).
+2. Make `GOOGLE_API_KEY` available — see
+   [GOOGLE_API_KEY](#google_api_key) immediately below.
+3. Symlink the Raycast Script Commands at this repo's `raycast/`
+   versions in your Raycast Script Commands directory (default
+   `~/.config/raycast/scripts/`):
+   ```bash
+   mkdir -p ~/.config/raycast/scripts
+   for s in open-voiceitt.sh load-file-to-scratchpad.sh send-to-iterm.sh send-to-vscode.sh; do
+     ln -sf "$PWD/raycast/$s" ~/.config/raycast/scripts/"$s"
+   done
+   ```
+   (`raycast/voiceitt-transform` is resolved relative to the
+   `send-to-*.sh` scripts via realpath, so it does not need its own
+   symlink.)
 4. **Grant Accessibility permission to Raycast** (per lesson 15;
-   adding `cliclick` itself does nothing).
+   adding `cliclick` itself to Accessibility does nothing).
 5. **Grant per-target Automation permission to Raycast** the first
-   time each `send-to-*` script fires (per lesson 14; one OS prompt
-   per target app).
+   time each `send-to-*` script fires (per lesson 14; one macOS
+   prompt per target app).
+6. Fire **Open Voiceitt Scratchpad** in Raycast. The script starts
+   `bridge/serve.py` on `:7531` and opens Chrome at
+   `http://localhost:7531/index.html`.
+
+If you already have the prototype (`voiceitt-amp-bridge`) installed
+and want to evaluate the MVP alongside it without breaking your
+working flow, use `scripts/toggle-raycast-binding.sh` to flip the
+`send-to-iterm.sh` and `send-to-vscode.sh` bindings between the two.
+Note: after the `feat/carry-serve-py-forward` work,
+`raycast/open-voiceitt.sh` in this repo also diverges from the
+prototype's; if you flip the server side, re-symlink `open-voiceitt.sh`
+at this repo's version manually (the toggle script does not handle
+that yet).
 
 ## GOOGLE_API_KEY
 
@@ -175,7 +216,7 @@ later PR.
 
 | Script | Purpose | Paste strategy |
 |---|---|---|
-| `raycast/open-voiceitt.sh` | Open the scratchpad (raises existing Chrome window if found; else starts the prototype's `serve.py` and opens a new window) | — |
+| `raycast/open-voiceitt.sh` | Open the scratchpad (raises existing Chrome window if found; else starts `bridge/serve.py` on `:7531` and opens a new window) | — |
 | `raycast/load-file-to-scratchpad.sh` | macOS open-panel → `POST /load` into the scratchpad | — |
 | `raycast/send-to-iterm.sh` | Cleanup-at-send → iTerm `write text … newline NO` | bypasses clipboard |
 | `raycast/send-to-vscode.sh` | Cleanup-at-send → VS Code via clipboard + cliclick Cmd+V | clipboard (transient) |
