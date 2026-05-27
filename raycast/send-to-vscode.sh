@@ -5,7 +5,7 @@
 # @raycast.mode silent
 # @raycast.packageName Voiceitt
 # @raycast.icon 🟦
-# @raycast.description Cleanup at send: copy from focused app (Voiceitt textarea), run through voiceitt-transform (fail-open to raw), then synthetic Cmd+V into VS Code. Sticky-Keys safe via cliclick. Does NOT press Return.
+# @raycast.description Cleanup at send: copy from focused app (Voiceitt textarea). When the page's AI toggle is ON (GET /ai-state == "1"), run through voiceitt-transform (fail-open to raw). When OFF, paste raw — no invisible LLM call. Then synthetic Cmd+V into VS Code. Sticky-Keys safe via cliclick. Does NOT press Return.
 
 set -e
 CLICLICK="/opt/homebrew/bin/cliclick"
@@ -58,20 +58,34 @@ if [ "$CURRENT" = "$SENTINEL" ] || [ -z "$CURRENT" ]; then
   exit 1
 fi
 
-# 6) Cleanup at send: run dictated text through voiceitt-transform. FAIL
-#    OPEN to raw on any non-zero exit or empty output (non-negotiable 4) —
-#    the user is mid-dictation; never leave them with an empty paste and
-#    a cryptic error. Append transform stderr to the same server.log the
-#    prototype uses so failures stay debuggable. `set +e` is required so
-#    we can inspect TRANSFORM_EXIT instead of aborting on non-zero.
-set +e
-CLEANED=$(printf '%s' "$CURRENT" | "$TRANSFORM" 2>>"$LOG_FILE")
-TRANSFORM_EXIT=$?
-set -e
-if [ "$TRANSFORM_EXIT" -ne 0 ] || [ -z "$CLEANED" ]; then
+# 6) Gate cleanup on the page's AI master toggle. The page POSTs its
+#    state to /ai-state on load and on every flip; we curl GET it
+#    here. If AI is OFF — or if the curl fails for any reason — we
+#    paste raw. "Out is not visible → paste raw" is the user's
+#    mental model (see thread T-019e6a4b… for the bug this fixes).
+#    Default-to-"0"-on-failure is the safe choice: never invisibly
+#    process when uncertain.
+AI_PORT="${VOICEITT_BRIDGE_PORT:-7531}"
+AI_STATE=$(curl -s --max-time 0.5 "http://127.0.0.1:${AI_PORT}/ai-state" 2>/dev/null || echo "0")
+if [ "$AI_STATE" != "1" ]; then
   TO_PASTE="$CURRENT"
 else
-  TO_PASTE="$CLEANED"
+  # AI is ON: run dictated text through voiceitt-transform. FAIL OPEN
+  # to raw on any non-zero exit or empty output (non-negotiable 4) —
+  # the user is mid-dictation; never leave them with an empty paste
+  # and a cryptic error. Append transform stderr to the same
+  # server.log the prototype uses so failures stay debuggable.
+  # `set +e` is required so we can inspect TRANSFORM_EXIT instead of
+  # aborting on non-zero.
+  set +e
+  CLEANED=$(printf '%s' "$CURRENT" | "$TRANSFORM" 2>>"$LOG_FILE")
+  TRANSFORM_EXIT=$?
+  set -e
+  if [ "$TRANSFORM_EXIT" -ne 0 ] || [ -z "$CLEANED" ]; then
+    TO_PASTE="$CURRENT"
+  else
+    TO_PASTE="$CLEANED"
+  fi
 fi
 
 # 7) Put the text we're actually going to paste onto the clipboard.
