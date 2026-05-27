@@ -31,6 +31,26 @@ if (aiParam === '0' || aiParam === '1') {
 let aiEnabled = localStorage.getItem(AI_TOGGLE_KEY) === '1';
 aiToggle.checked = aiEnabled;
 
+/*
+ * Server-side mirror of the toggle, for the bash send-to-*.sh
+ * scripts to curl. The bash side has no DOM access, so without this
+ * the cleanup-at-send wiring in send-to-vscode.sh / send-to-iterm.sh
+ * runs voiceitt-transform unconditionally — even when the user has
+ * opted out via this toggle. Push on initial load (so the server
+ * mirror matches localStorage from the very first hotkey) and on
+ * every flip (toggle handler below). Fire-and-forget: errors are
+ * logged but never block the page; bash side defaults to "0" / paste
+ * raw on any curl failure, which matches the AI-off semantic anyway.
+ */
+function pushAiState() {
+  fetch('/ai-state', {
+    method: 'POST',
+    headers: {'content-type': 'text/plain'},
+    body: aiEnabled ? '1' : '0',
+  }).catch((err) => console.warn('POST /ai-state failed', err));
+}
+pushAiState();
+
 // Body class drives the CSS that hides #pane-out when AI is off.
 // Kept as a body class (rather than inline style on #pane-out)
 // so future visibility-coupled rules — e.g. dimming the status
@@ -155,6 +175,7 @@ pad.addEventListener('input', () => {
 aiToggle.addEventListener('change', () => {
   aiEnabled = aiToggle.checked;
   localStorage.setItem(AI_TOGGLE_KEY, aiEnabled ? '1' : '0');
+  pushAiState();
   if (!aiEnabled) {
     clearTimeout(debounceTimer);
     if (inFlight) { inFlight.abort(); inFlight = null; }
