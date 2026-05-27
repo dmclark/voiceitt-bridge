@@ -13,7 +13,7 @@ non-trivial change, read these in order:
    their lesson numbers; the *story* behind each constraint lives
    here.
 3. The per-directory `AGENTS.md` for whichever area you're editing
-   (`web/AGENTS.md`, `raycast/AGENTS.md`).
+   (`web/AGENTS.md`, `bridge/AGENTS.md`, `raycast/AGENTS.md`).
 
 ## Hard ground rules (these never bend)
 
@@ -21,10 +21,14 @@ non-trivial change, read these in order:
   the result of a debugging session you didn't have to suffer through.
   If you think a non-negotiable should be revisited, surface it
   explicitly — don't quietly route around it.
-- **MVP ≠ post-MVP.** MVP ships *no Python*. If you find
-  yourself wanting to write FastAPI routes, a `pyproject.toml`, a
-  `src/voiceitt_bridge/` package, or any tests under `tests/`, stop
-  and check whether the request is actually post-MVP work.
+- **MVP ≠ post-MVP.** MVP ships *no Python architecture* — no
+  FastAPI, no `pyproject.toml`, no `src/voiceitt_bridge/` package,
+  no `tests/`. The one Python file MVP does have is `bridge/serve.py`,
+  a single stdlib `ThreadingHTTPServer` carried over verbatim from
+  the prototype (see [`bridge/AGENTS.md`](./bridge/AGENTS.md)). If
+  you find yourself wanting to add `pip` deps, multi-file Python
+  refactors, or anything in `src/`, stop and check whether the
+  request is actually post-MVP work.
 - **Salvage is verbatim reference, not a mutable directory.** Read
   from `salvage/` freely; do not edit it.
 - **The prototype on `localhost:7531` is load-bearing.** The user is
@@ -41,11 +45,12 @@ non-trivial change, read these in order:
 | Vision, non-negotiables, open decisions, MVP / post-MVP split | [`HANDOFF.md`](./HANDOFF.md) |
 | LLM system prompts | [`prompts/`](./prompts/) |
 | Scratchpad page (vanilla HTML/CSS/JS) | [`web/`](./web/) + [`web/AGENTS.md`](./web/AGENTS.md) |
+| MVP HTTP server (stdlib `serve.py`) | [`bridge/`](./bridge/) + [`bridge/AGENTS.md`](./bridge/AGENTS.md) |
 | Raycast Script Commands + MVP transform | [`raycast/`](./raycast/) + [`raycast/AGENTS.md`](./raycast/AGENTS.md) |
 | Carried-over reference artifacts | [`salvage/`](./salvage/) |
 | Parking lot, design notes (mostly post-MVP+) | [`notes/`](./notes/) |
-| Dev convenience scripts | [`scripts/`](./scripts/) |
-| Python web app, providers, tests | *(post-MVP, does not exist yet)* |
+| Dev convenience scripts (toggle, install) | [`scripts/`](./scripts/) |
+| post-MVP FastAPI app, providers, tests | *(does not exist yet; `bridge/serve.py` stays as the simple fallback)* |
 
 ## Verification expectations
 
