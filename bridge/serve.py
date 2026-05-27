@@ -63,6 +63,13 @@ LOAD_HOME = os.path.realpath(os.path.expanduser("~"))
 _state_lock = threading.Lock()
 _loaded = {"path": "", "text": ""}
 _subscribers: "list[Queue]" = []
+# AI master-toggle mirror (see GET/POST /ai-state). Default off matches
+# the page default (web/script.js: aiEnabled = localStorage … === '1',
+# unset → False). Holds the page's last-pushed state so the bash
+# send-to-*.sh scripts can gate cleanup-at-send on it without DOM
+# access. Last-write-wins across multiple Chrome tabs — acceptable for
+# MVP since the scratchpad is a single-tab workflow.
+_ai_enabled = False
 
 
 def _broadcast_reload():
@@ -129,6 +136,16 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/events":
             self._serve_events()
             return
+        if self.path == "/ai-state":
+            with _state_lock:
+                body = (b"1" if _ai_enabled else b"0")
+            self.send_response(200)
+            self.send_header("content-type", "text/plain; charset=utf-8")
+            self.send_header("cache-control", "no-store")
+            self.send_header("content-length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         return super().do_GET()
 
     def _serve_events(self):
@@ -167,6 +184,9 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/load":
             self._handle_load()
+            return
+        if self.path == "/ai-state":
+            self._handle_ai_state()
             return
         if self.path != "/transform":
             self.send_error(404, "unknown endpoint")
@@ -289,6 +309,24 @@ class Handler(SimpleHTTPRequestHandler):
             % (_ts(), abspath, size, len(text))
         )
         _broadcast_reload()
+        self._send_text(200, "ok")
+
+    def _handle_ai_state(self):
+        """POST /ai-state — body is the literal text "0" or "1" (matching
+        the URL-override convention used by web/script.js and the
+        ?ai=0|1 query string). Updates the in-memory mirror that
+        send-to-*.sh scripts curl before deciding whether to run
+        voiceitt-transform. Returns 200 "ok" on success; 400 otherwise."""
+        global _ai_enabled
+        length = int(self.headers.get("content-length", "0") or "0")
+        raw = self.rfile.read(length) if length else b""
+        body = raw.decode("utf-8", errors="replace").strip()
+        if body not in ("0", "1"):
+            self.send_error(400, "body must be the literal '0' or '1'")
+            return
+        with _state_lock:
+            _ai_enabled = (body == "1")
+        sys.stderr.write("%s ai-state := %s\n" % (_ts(), body))
         self._send_text(200, "ok")
 
     def _send_text(self, status, body):

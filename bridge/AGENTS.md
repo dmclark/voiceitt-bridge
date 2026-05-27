@@ -36,15 +36,18 @@ Four endpoints, no framework, no third-party dependencies.
   dependency here.
 - **One file.** `serve.py` is ~315 lines and stays one file. Multi-file
   refactors also point at post-MVP.
-- **Carried verbatim from `salvage/bridge/serve.py`.** This file is
-  byte-identical to its salvage source (`diff -q` returns clean).
-  Internal docstring references to "ERD §x.y", "ROADMAP §1", and
-  "PARKING-LOT 2026-05-13 → graduated" are prototype-era references;
-  the equivalent context in this repo lives in `HANDOFF.md`,
-  `salvage/notes/LESSONS-LEARNED.md`, and `salvage/notes/PARKING-LOT.md`.
-  **Do not "clean up" those references** as a drive-by — keeping the
-  verbatim-from-salvage property is more useful than tidying stale
-  links.
+- **Carried (originally verbatim) from `salvage/bridge/serve.py`.**
+  As of `fix/gate-cleanup-on-ai-toggle` the file is no longer
+  byte-identical with its salvage source — the `/ai-state` endpoint
+  was added so `raycast/send-to-*.sh` can gate cleanup-at-send on
+  the page's AI master toggle (see commit message for the bug it
+  fixes). Internal docstring references to "ERD §x.y", "ROADMAP §1",
+  and "PARKING-LOT 2026-05-13 → graduated" are prototype-era
+  references; the equivalent context in this repo lives in
+  `HANDOFF.md`, `salvage/notes/LESSONS-LEARNED.md`, and
+  `salvage/notes/PARKING-LOT.md`. **Do not "clean up" those
+  references** as a drive-by — the carried-from-salvage origin is
+  still useful context even now that the file has diverged.
 - **Run via `python3 bridge/serve.py`.** No entry-point script, no
   `python -m`, no setuptools. The shebang is honored
   (`#!/usr/bin/env python3`) for direct execution.
@@ -84,6 +87,8 @@ for the full provisioning story).
 | `POST` | `/load` | `{"path": "<abs or ~-relative>"}` | `text/plain "ok"` on 200; 4xx with one-line reason otherwise | Hard caps: ≤50 KB, UTF-8, path must resolve under `$HOME` (non-negotiable 9, lesson 25). |
 | `GET` | `/file` | — | `application/json {"path":"...","text":"..."}` | Returns the single in-memory load slot; `{"path":"","text":""}` when nothing is loaded. |
 | `GET` | `/events` | — | `text/event-stream` | SSE; emits `event: reload` whenever `/load` succeeds, plus a 15-second `: ping` heartbeat comment. |
+| `GET` | `/ai-state` | — | `text/plain "0"` or `"1"` | Reports the page's last-pushed AI master-toggle state. Defaults to `"0"` on server start. `raycast/send-to-*.sh` curls this to decide whether to run cleanup-at-send. |
+| `POST` | `/ai-state` | `text/plain "0"` or `"1"` (raw body, not JSON) | `text/plain "ok"` on 200; 400 with one-line reason otherwise | Page calls this on initial load and on every toggle flip so the server mirror stays in sync with `localStorage`. |
 
 Adding endpoints is fine for trivial reads. Changing the contract of
 any existing endpoint requires a matching change in `web/script.js`
