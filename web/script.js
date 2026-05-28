@@ -180,6 +180,10 @@ aiToggle.addEventListener('change', () => {
     clearTimeout(debounceTimer);
     if (inFlight) { inFlight.abort(); inFlight = null; }
     padOut.value = pad.value;
+    // Programmatic value assignment doesn't trigger native "scroll caret into view".
+    // Ensure the caret stays visible if padOut has focus (though unlikely here
+    // since we hide the pane immediately after).
+    if (document.activeElement === padOut) ensureCaretInView(padOut);
     setStatus('off');
     // If pad-out had focus when the user disabled AI, the pane
     // about to be hidden was the active element — bounce focus
@@ -226,6 +230,9 @@ async function runTransform() {
     // distinguishable.
     console.log('[transform]', {input: text, output: cleaned, changed: cleaned !== text});
     padOut.value = cleaned;
+    // Programmatic value assignment doesn't trigger native "scroll caret into view"
+    // like user keystrokes do. Ensure the caret stays visible if padOut has focus.
+    if (document.activeElement === padOut) ensureCaretInView(padOut);
     setStatus(cleaned === text ? 'ok (unchanged)' : 'ok', 'ok');
   } catch (err) {
     if (err.name === 'AbortError') return;
@@ -234,6 +241,9 @@ async function runTransform() {
     // and surface that we did so.
     console.warn('transform failed, falling back to raw text', err);
     padOut.value = text;
+    // Programmatic value assignment doesn't trigger native "scroll caret into view"
+    // like user keystrokes do. Ensure the caret stays visible if padOut has focus.
+    if (document.activeElement === padOut) ensureCaretInView(padOut);
     setStatus('fail-open: raw', 'warn');
   } finally {
     inFlight = null;
