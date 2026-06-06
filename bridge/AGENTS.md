@@ -1,14 +1,25 @@
 # AGENTS.md — `bridge/` conventions
 
-The MVP HTTP server. A single Python 3 stdlib script (`serve.py`)
-carried over verbatim from the prototype's `salvage/bridge/serve.py`.
-Four endpoints, no framework, no third-party dependencies.
+The MVP HTTP server: `serve.py`, the prototype's `ThreadingHTTPServer`
+carried over from `salvage/bridge/serve.py`. Four endpoints; it serves
+the scratchpad and shells out to the cleanup transform.
+
+> **Revised 2026-06-06:** the MVP/post-MVP reversal in `../HANDOFF.md`
+> withdrew the stdlib-only constraint. This file is **no longer
+> restricted to stdlib-only**. MVP Python may take third-party
+> dependencies — managed with **`uv`**, never bare `pip` — and may
+> span multiple files under `bridge/` where that buys something.
+> Stdlib is still preferred when it suffices (don't add a dep you
+> don't need), but reaching for one is no longer the trigger to jump
+> to post-MVP. The one boundary that still holds: **`serve.py` stays
+> the MVP server; it is not replaced by FastAPI for MVP.** The FastAPI
+> + `src/voiceitt_bridge/` re-architecture remains post-MVP.
 
 > Required reading before touching anything here:
 > 1. [`../HANDOFF.md`](../HANDOFF.md) — particularly the "Endpoints
 >    (carry over verbatim)" table, which is the contract this file
->    implements, and the MVP / post-MVP split blockquote, which
->    explains why this is a stdlib script and not a FastAPI app.
+>    implements, and the revised MVP / post-MVP split blockquote, which
+>    explains why this stays `serve.py` rather than a FastAPI app.
 > 2. [`../salvage/notes/LESSONS-LEARNED.md`](../salvage/notes/LESSONS-LEARNED.md)
 >    lessons 23, 24, 25 (SSE design, single-load-slot rule,
 >    `$HOME`-confinement on `/load`).
@@ -29,13 +40,15 @@ Four endpoints, no framework, no third-party dependencies.
 
 ## Conventions
 
-- **Python 3 stdlib only.** No `pip install`. No `requirements.txt`.
-  No virtualenv. If you find yourself wanting `httpx`, `pydantic`,
-  `fastapi`, or anything else off PyPI, **stop**: that's the trigger
-  to start post-MVP work in `src/voiceitt_bridge/`, not to add a
-  dependency here.
-- **One file.** `serve.py` is ~315 lines and stays one file. Multi-file
-  refactors also point at post-MVP.
+- **Dependencies via `uv`, never bare `pip`.** Stdlib is still the
+  default and preferred where it's enough; if you genuinely need a
+  third-party package, add it with `uv` (`uv add …`) so it's captured
+  in `pyproject.toml` + lockfile. The exception is `fastapi`/`uvicorn`
+  specifically — wanting *those* means you're re-architecting, which
+  belongs in `src/voiceitt_bridge/` (post-MVP), not here.
+- **Multi-file is allowed.** `serve.py` may split into helper modules
+  under `bridge/` if it earns its keep; there's no longer a one-file
+  rule. Keep it as small as the job allows.
 - **Carried (originally verbatim) from `salvage/bridge/serve.py`.**
   As of `fix/gate-cleanup-on-ai-toggle` the file is no longer
   byte-identical with its salvage source — the `/ai-state` endpoint
@@ -48,9 +61,10 @@ Four endpoints, no framework, no third-party dependencies.
   `salvage/notes/PARKING-LOT.md`. **Do not "clean up" those
   references** as a drive-by — the carried-from-salvage origin is
   still useful context even now that the file has diverged.
-- **Run via `python3 bridge/serve.py`.** No entry-point script, no
-  `python -m`, no setuptools. The shebang is honored
-  (`#!/usr/bin/env python3`) for direct execution.
+- **Run via `python3 bridge/serve.py`** (or `uv run bridge/serve.py`
+  once it has `uv`-managed deps). The shebang is honored
+  (`#!/usr/bin/env python3`) for direct execution while it stays
+  stdlib-only.
 
 ## Configuration (all via env vars)
 
@@ -97,7 +111,10 @@ hits `/load`).
 
 ## Things forbidden here
 
-- **No third-party deps.** See the conventions above.
+- **No bare `pip` / unmanaged deps.** Use `uv` so any dependency is
+  captured in `pyproject.toml` + lockfile; don't `pip install` into a
+  loose environment. And don't pull `fastapi`/`uvicorn` in here —
+  that's the post-MVP re-architecture trigger (see conventions).
 - **No multi-file load slot, no recent-files history.** The single
   in-memory `_loaded` slot is intentional (lesson 24); auto-restore
   on reload is intentionally absent.
