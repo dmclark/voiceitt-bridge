@@ -21,16 +21,28 @@ non-trivial change, read these in order:
   the result of a debugging session you didn't have to suffer through.
   If you think a non-negotiable should be revisited, surface it
   explicitly — don't quietly route around it.
-- **MVP ≠ post-MVP.** MVP ships *no Python architecture* — no
-  FastAPI, no `pyproject.toml`, no `src/voiceitt_bridge/` package,
-  no `tests/`. The one Python file MVP does have is `bridge/serve.py`,
-  a single stdlib `ThreadingHTTPServer` carried over verbatim from
-  the prototype (see [`bridge/AGENTS.md`](./bridge/AGENTS.md)). If
-  you find yourself wanting to add `pip` deps, multi-file Python
-  refactors, or anything in `src/`, stop and check whether the
-  request is actually post-MVP work.
+- **MVP ≠ post-MVP.** *(Revised 2026-06-06 — the earlier "MVP ships
+  no Python architecture" rule is withdrawn; see the dated
+  decision-reversal note in `HANDOFF.md`.)* MVP **may** use Python
+  freely: third-party dependencies are allowed — managed with
+  **`uv`**, never bare `pip`, so a `pyproject.toml` + lockfile are
+  legitimate MVP artifacts — and multi-file Python is fine.
+  `bridge/serve.py` stays the MVP server (see
+  [`bridge/AGENTS.md`](./bridge/AGENTS.md)); it is **not** replaced by
+  FastAPI for MVP. What is still deferred to post-MVP is the
+  *re-architecture*: the FastAPI app and the `src/voiceitt_bridge/`
+  package layout (prompt-picker plumbing, pluggable providers, in-page
+  preview/diff). If you find yourself reaching for FastAPI or building
+  out `src/voiceitt_bridge/`, stop and check whether the request is
+  actually post-MVP work.
 - **Salvage is verbatim reference, not a mutable directory.** Read
   from `salvage/` freely; do not edit it.
+- **Prune addressed/stale content from `notes/` and the docs.** When a
+  parked idea graduates to real work or a statement is superseded,
+  delete the line (`notes/PARKING-LOT.md` already says to). This does
+  **not** apply to `salvage/` (stays verbatim) or to text explicitly
+  marked *historical* / *superseded* (e.g. in `HANDOFF.md`), which is
+  kept on purpose.
 - **The prototype on `localhost:7531` is load-bearing.** The user is
   actively dictating through it. Do not change anything that could
   break it without asking.
@@ -50,7 +62,7 @@ non-trivial change, read these in order:
 | Carried-over reference artifacts | [`salvage/`](./salvage/) |
 | Parking lot, design notes (mostly post-MVP+) | [`notes/`](./notes/) |
 | Dev convenience scripts (toggle, install) | [`scripts/`](./scripts/) |
-| post-MVP FastAPI app, providers, tests | *(does not exist yet; `bridge/serve.py` stays as the simple fallback)* |
+| post-MVP FastAPI app + `src/voiceitt_bridge/` package, pluggable providers | *(does not exist yet; `bridge/serve.py` stays the MVP server)* |
 
 ## Verification expectations
 

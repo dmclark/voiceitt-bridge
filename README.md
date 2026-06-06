@@ -86,14 +86,14 @@ voiceitt-bridge/
 ├── AGENTS.md         ← root routing doc for AI assistants
 ├── prompts/          ← LLM system prompts (cleanup, …)
 ├── web/              ← scratchpad page (vanilla HTML/CSS/JS, no build step)
-├── bridge/           ← stdlib HTTP server (serve.py) — serves web/, owns the four endpoints
+├── bridge/           ← HTTP server (serve.py) — serves web/, owns the four endpoints
 ├── raycast/          ← Raycast Script Commands + the cleanup transform
 ├── notes/            ← parking lot, design notes (empty in MVP)
 ├── scripts/          ← dev convenience (toggle, install)
 └── salvage/          ← verbatim artifacts from the prototype; reference only
 ```
 
-**Note**: The `src/voiceitt_bridge/` directory (FastAPI app, prompt loader, framing module, pluggable providers) and `tests/` are planned for post-MVP. The MVP uses only a single stdlib script under `bridge/` since Voiceitt won't attach to `file://` URLs.
+**Note**: The `src/voiceitt_bridge/` directory (FastAPI app, prompt loader, framing module, pluggable providers) is the planned post-MVP re-architecture. MVP keeps `bridge/serve.py` as the server (Voiceitt won't attach to `file://` URLs, so a local HTTP server is required) — but MVP Python is free to take `uv`-managed dependencies, add a `pyproject.toml`, and span multiple files as needed. What's deferred is the FastAPI package rewrite, not Python itself.
 
 ---
 
@@ -159,7 +159,7 @@ This stops Raycast's own clipboard history from logging every dictation transiti
 ## 🚫 What's Not in This MVP
 
 Explicitly out of scope (see [HANDOFF.md](./HANDOFF.md) for full list):
-- FastAPI app, `src/voiceitt_bridge/`, `pyproject.toml`, `tests/`
+- The FastAPI re-architecture: the FastAPI app and the `src/voiceitt_bridge/` package (MVP may still use `uv`, `pyproject.toml`, and tests — what's deferred is the package rewrite, not Python deps)
 - The `clipboard-restore` save-and-restore wrapper around the clipboard ritual (next PR)
 - Any Raycast Extension work (post-MVP+)
 - Prompt-picker UI (post-MVP+)
