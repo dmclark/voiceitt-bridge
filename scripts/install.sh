@@ -77,8 +77,8 @@ if ! command -v python3 &>/dev/null; then
 fi
 
 # Step 2: Install required packages
-log_info "Installing required packages (cliclick, jq)..."
-brew install cliclick jq
+log_info "Installing required packages (cliclick)..."
+brew install cliclick
 
 # Step 3: Set up GOOGLE_API_KEY (if provided)
 if [ "$API_KEY_PROVIDED" = true ] || [ -n "${GOOGLE_API_KEY:-}" ]; then

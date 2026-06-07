@@ -1,9 +1,11 @@
 # AGENTS.md — `raycast/` conventions
 
 Raycast Script Commands (bash, with `@raycast.*` header metadata) and
-the MVP `voiceitt-transform` cleanup script. The Raycast side
-stays Script Commands until prompt-picker / preferences work forces a
-flip to a Raycast Extension (HANDOFF answered open decision #2).
+the MVP `voiceitt-transform` cleanup script (Python 3 stdlib —
+`urllib`/`json`, no `curl`/`jq`/pip deps; ported from bash). The
+Raycast side stays Script Commands until prompt-picker / preferences
+work forces a flip to a Raycast Extension (HANDOFF answered open
+decision #2).
 
 > **Required reading before editing anything here:**
 > 1. [`../HANDOFF.md`](../HANDOFF.md) non-negotiables 1, 6, 7, 8, 9
@@ -107,7 +109,7 @@ mention this to the user so they don't mistake it for an error.
   `$VOICEITT_BRIDGE_DIR/env`, default `~/.config/voiceitt-bridge/env`,
   by `open-voiceitt.sh` — see lesson 16 for why this is in a file
   rather than relying on shell inheritance).
-- `curl`, `jq` on PATH.
+- `python3` on PATH (stdlib only — no `curl`, no `jq`, no pip deps).
 - Reads dictated text from stdin, writes cleaned text on stdout.
 - Exits non-zero on any error. The wrapping `send-to-*` script must
   catch and fall back to raw text (non-negotiable 4).

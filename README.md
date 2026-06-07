@@ -29,7 +29,7 @@ Follow these steps to get up and running quickly:
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     
    # Install required tools
-   brew install cliclick jq
+   brew install cliclick
    
    # Verify Python 3 is available
    python3 --version
@@ -101,7 +101,7 @@ voiceitt-bridge/
 Each `send-to-*` Raycast hotkey follows this flow:
 
 1. Voiceitt dictation goes to clipboard (with sentinel + poll mechanism)
-2. `voiceitt-transform` processes the text via Gemini API (bash + curl + jq)
+2. `voiceitt-transform` processes the text via Gemini API (Python 3 stdlib — `urllib`, no `curl`/`jq`)
 3. Cleaned text is sent to target application:
    - **iTerm**: Uses AppleScript `write text … newline NO` (bypasses clipboard)
    - **Other apps** (VS Code, etc.): Uses clipboard + cliclick Cmd+V (Sticky-Keys-safe ritual)
