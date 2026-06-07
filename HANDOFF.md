@@ -588,7 +588,7 @@ These are not for the AI to decide unilaterally. Ask before committing:
    sketched a picker + active-prompt sidecar. Does the user want a
    Raycast Extension preference UI, an in-page dropdown in the
    scratchpad header, or both?
-> a: both, but the dropdown is the MVP
+> a: both, with the in-page dropdown first — but **post-MVP** (revised 2026-06-06). The prompt picker / prompt management is not MVP scope, consistent with README "What's Not in This MVP" and the post-MVP triggers in the decision blockquote above. *(Earlier this read "the dropdown is the MVP"; that is withdrawn.)*
 5. **Whether to migrate git history.** Probably no — the shape of
    the repo is different enough that a clean start is honest. The
    old repo stays as a reference (don't delete it).
