@@ -24,7 +24,7 @@ plumbing yet, no rolling-context buffer. The existing Gemini-backed
 Configuration via env vars (all optional):
   VOICEITT_BRIDGE_PORT          default 7531
   VOICEITT_BRIDGE_DIR           default ~/.config/voiceitt-bridge
-  VOICEITT_TRANSFORM_CMD        default $VOICEITT_BRIDGE_DIR/voiceitt-transform
+  VOICEITT_TRANSFORM_CMD        default $VOICEITT_BRIDGE_DIR/voiceitt-transform.py
   VOICEITT_TRANSFORM_HARD_TIMEOUT  default 10  (seconds; outer cap on
                                                 the subprocess; the CLI
                                                 has its own curl --max-time)
@@ -47,7 +47,7 @@ SERVE_DIR = os.environ.get(
 )
 TRANSFORM_CMD = os.environ.get(
     "VOICEITT_TRANSFORM_CMD",
-    os.path.join(SERVE_DIR, "voiceitt-transform"),
+    os.path.join(SERVE_DIR, "voiceitt-transform.py"),
 )
 HARD_TIMEOUT = float(os.environ.get("VOICEITT_TRANSFORM_HARD_TIMEOUT", "10"))
 

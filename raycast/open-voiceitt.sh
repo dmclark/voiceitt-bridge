@@ -8,8 +8,8 @@
 # @raycast.description Start the in-repo bridge HTTP server (serving web/) and open the Voiceitt Scratchpad in Chrome. Raises the existing window if already open. Required because Voiceitt only attaches to http:// origins.
 
 # Resolve this script's real directory (follows symlinks) so we can find
-# bridge/serve.py, web/, and voiceitt-transform next to it regardless of
-# where Raycast symlinked the script from. Matches the realpath pattern
+# the repo root — bridge/serve.py, bridge/voiceitt-transform.py, and web/ —
+# regardless of where Raycast symlinked the script from. Matches the realpath pattern
 # the send-to-*.sh scripts use.
 SCRIPT_REAL="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$0")"
 SCRIPT_DIR="$(dirname "$SCRIPT_REAL")"
@@ -21,7 +21,7 @@ REPO_DIR="$(dirname "$SCRIPT_DIR")"
 # standalone.
 SERVE_PY="$REPO_DIR/bridge/serve.py"
 WEB_DIR="$REPO_DIR/web"
-TRANSFORM_CMD="$REPO_DIR/raycast/voiceitt-transform"
+TRANSFORM_CMD="$REPO_DIR/bridge/voiceitt-transform.py"
 
 # Runtime config dir holds the env file (GOOGLE_API_KEY) and the
 # rolling server log. Same layout as the prototype so existing users

@@ -28,7 +28,7 @@ the scratchpad and shells out to the cleanup transform.
 
 - **Is:** the MVP scratchpad server. Serves `web/` over `http://localhost`
   (which Voiceitt requires, per non-negotiable 2), shells out to the
-  bash `voiceitt-transform` CLI for `POST /transform`, and runs the
+  Python `voiceitt-transform.py` CLI for `POST /transform`, and runs the
   `/load` + `/file` + `/events` triplet that backs the
   `load-file-to-scratchpad.sh` Raycast command.
 - **Is not:** the post-MVP `src/voiceitt_bridge/` FastAPI app. When
@@ -72,14 +72,14 @@ the scratchpad and shells out to the cleanup transform.
 |---|---|---|
 | `VOICEITT_BRIDGE_PORT` | `7531` | unchanged |
 | `VOICEITT_BRIDGE_DIR` | `~/.config/voiceitt-bridge` | `<repo>/web` (set by `raycast/open-voiceitt.sh`) |
-| `VOICEITT_TRANSFORM_CMD` | `$VOICEITT_BRIDGE_DIR/voiceitt-transform` | `<repo>/raycast/voiceitt-transform` (set by `raycast/open-voiceitt.sh`) |
+| `VOICEITT_TRANSFORM_CMD` | `$VOICEITT_BRIDGE_DIR/voiceitt-transform.py` | `<repo>/bridge/voiceitt-transform.py` (set by `raycast/open-voiceitt.sh`) |
 | `VOICEITT_TRANSFORM_HARD_TIMEOUT` | `10` (seconds) | unchanged |
 
 The defaults are wired for the prototype's directory layout (one
 config dir holding everything). This repo overrides
 `VOICEITT_BRIDGE_DIR` to point at `web/` so the server serves the
 scratchpad page from the repo, and overrides `VOICEITT_TRANSFORM_CMD`
-to point at `raycast/voiceitt-transform`. Both overrides are applied
+to point at `bridge/voiceitt-transform.py`. Both overrides are applied
 inside `raycast/open-voiceitt.sh` before launching the server, so a
 user who just runs `python3 bridge/serve.py` by hand will get the
 salvage defaults — fine for "I want to poke at it" but not the
@@ -130,7 +130,7 @@ hits `/load`).
 # Boot on a free port so we don't fight the prototype on :7531.
 VOICEITT_BRIDGE_PORT=7532 \
   VOICEITT_BRIDGE_DIR="$PWD/web" \
-  VOICEITT_TRANSFORM_CMD="$PWD/raycast/voiceitt-transform" \
+  VOICEITT_TRANSFORM_CMD="$PWD/bridge/voiceitt-transform.py" \
   python3 bridge/serve.py &
 
 # Static serve

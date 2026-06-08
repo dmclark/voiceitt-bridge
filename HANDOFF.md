@@ -183,7 +183,7 @@ stop, re-read the lesson, and pick a different approach.
 | Lint / format | `ruff` (lint + format both) | One tool, fast. |
 | Type checker | `mypy --strict` on `src/`, lenient on tests | Catch dict-shape errors early. |
 | Tests | `pytest` + `httpx.AsyncClient` for endpoint tests | The bash prototype had no tests; this is the moment to add them. |
-| LLM transform | Start with Google Gemini 2.5 Flash Lite via `urllib.request` *or* the official `google-genai` SDK. Design for **pluggable providers** from day one (the `voiceitt-transform` parking-lot note flagged this). | Multi-provider was deferred in the prototype because bash made it painful; Python makes it easy. |
+| LLM transform | Start with Google Gemini 3.1 Flash Lite via `urllib.request` *or* the official `google-genai` SDK. Design for **pluggable providers** from day one (the `voiceitt-transform` parking-lot note flagged this). | Multi-provider was deferred in the prototype because bash made it painful; Python makes it easy. |
 | Raycast side | **Start with Script Commands** (carried over from the prototype). Flip to a **Raycast Extension** when the user reaches prompt-picker / preferences work. | Avoid paying the Node/TS/build cost until it buys something the user actually needs. |
 | Node package manager (only if/when the Extension is built) | **`pnpm` v11+ with default `strictDepBuilds: true`** — never `npm`. | Since Sep 2025 the npm ecosystem has been hit by a series of self-replicating worms (Shai-Hulud and successors) that propagate via `preinstall`/`postinstall` lifecycle scripts running automatically on `npm install`. pnpm v11 blocks lifecycle scripts by default, enforces a release cooldown on new versions, and requires explicit allowlisting of packages that need build steps. Bun and Yarn Berry have similar consumer-side defenses; the npm CLI does not. See "npm supply chain posture" section below. |
 
@@ -302,7 +302,7 @@ All via env vars, with sane defaults:
 |---|---|---|
 | `VOICEITT_BRIDGE_PORT` | `7531` | Listen port. |
 | `VOICEITT_BRIDGE_DIR` | `~/.config/voiceitt-bridge` | Runtime config dir (env file, prompts/, server.log). |
-| `VOICEITT_TRANSFORM_MODEL` | `gemini-2.5-flash-lite` | LLM model id. |
+| `VOICEITT_TRANSFORM_MODEL` | `gemini-3.1-flash-lite` | LLM model id. |
 | `VOICEITT_TRANSFORM_TIMEOUT` | `6` | Per-call seconds. |
 | `VOICEITT_TRANSFORM_HARD_TIMEOUT` | `10` | Outer subprocess cap (only relevant if the transform stays a subprocess; once it's in-process, drop this). |
 | `GOOGLE_API_KEY` | — | Required when the Gemini provider is selected. |

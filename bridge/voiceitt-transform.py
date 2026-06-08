@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+# voiceitt-transform — read dictated text on stdin, write LLM-cleaned text on stdout.
+#
+# v0: hardcoded provider (Google AI Studio / Gemini 3.1 Flash Lite). The system
+# prompt is loaded from $VOICEITT_BRIDGE_DIR/prompts/default.md (symlinked to
+# the repo's prompts/default.md by install.sh). The picker and active-prompt
+# sidecar aren't wired yet (both post-MVP), so default.md is always used.
+#
+# Ported from the original bash version to the Python stdlib (urllib + json).
+# Python 3 was already a hard dependency of the old script (it shelled out to
+# `python3` for realpath), so this drops the `jq` dependency entirely and keeps
+# only `python3`. The contract is unchanged: stdin in, clean text on stdout,
+# diagnostics on stderr, non-zero exit on any failure so both callers
+# (`bridge/serve.py` POST /transform and the `send-to-*.sh` Raycast scripts)
+# can fail open to the raw transcript (non-negotiable 4).
+#
+# Framing (lesson 17): the dictated text is wrapped in <TRANSCRIPT>…</TRANSCRIPT>
+# before being sent as the user message. Without this framing — and the matching
+# default.md system prompt that explains what <TRANSCRIPT> means — utterances
+# like "make a directory called src" get interpreted by the LLM as commands to
+# execute rather than transcripts to clean up.
+#
+# Usage:
+#   echo "um so like make a directory called source" | bridge/voiceitt-transform.py
+#
+# Requires:
+#   - GOOGLE_API_KEY in env (get one at https://aistudio.google.com/apikey)
+#   - python3 (stdlib only; no curl, no jq, no pip deps)
+#
+# Exit codes (kept from the bash version for parity):
+#   0  success, or empty-stdin pass-through
+#   1  runtime failure (network/timeout, non-200, unparseable or empty response)
+#   2  misconfiguration (missing GOOGLE_API_KEY, missing prompt file)
+
+import json
+import os
+import socket
+import sys
+import urllib.error
+import urllib.request
+
+API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+
+
+def fail(message, code=1):
+    """Write a diagnostic line to stderr and exit with the given code."""
+    sys.stderr.write("voiceitt-transform: %s\n" % message)
+    sys.exit(code)
+
+
+def find_prompt_file():
+    """Locate prompts/default.md.
+
+    Mirrors the bash resolution order so behaviour is identical whether the
+    script is invoked from the repo or via the install.sh symlink at
+    ~/.config/voiceitt-bridge/voiceitt-transform.py:
+      1. $VOICEITT_BRIDGE_CONFIG/prompts/default.md
+         (default $HOME/.config/voiceitt-bridge/prompts/default.md)
+      2. <script's real dir>/../prompts/default.md  (repo checkout)
+    """
+    config_dir = os.environ.get(
+        "VOICEITT_BRIDGE_CONFIG",
+        os.path.join(os.path.expanduser("~"), ".config", "voiceitt-bridge"),
+    )
+    candidate = os.path.join(config_dir, "prompts", "default.md")
+    if os.path.isfile(candidate):
+        return candidate
+
+    # Fallback: resolve relative to the script's real path (following symlinks).
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    candidate = os.path.join(script_dir, "..", "prompts", "default.md")
+    if os.path.isfile(candidate):
+        return candidate
+
+    fail(
+        "cannot find prompts/default.md (looked in "
+        "$VOICEITT_BRIDGE_CONFIG/prompts and %s)" % os.path.dirname(candidate),
+        code=2,
+    )
+
+
+def main():
+    api_key = os.environ.get("GOOGLE_API_KEY")
+    if not api_key:
+        fail("GOOGLE_API_KEY is not set", code=2)
+
+    model = os.environ.get("VOICEITT_TRANSFORM_MODEL", "gemini-3.1-flash-lite")
+    # Default timeout matches the bash version's 6s. Once the send-to-* wrappers'
+    # fail-open path is well exercised this could drop to ~2.5s so a slow API
+    # call doesn't visibly hang the paste hotkey.
+    try:
+        timeout = float(os.environ.get("VOICEITT_TRANSFORM_TIMEOUT", "6"))
+    except ValueError:
+        timeout = 6.0
+
+    system_prompt = open(find_prompt_file(), encoding="utf-8").read()
+
+    # Match the bash `INPUT="$(cat)"` behaviour: command substitution strips
+    # trailing newlines, and an all-newline input becomes empty → pass-through.
+    raw_input_text = sys.stdin.read().rstrip("\n")
+    if not raw_input_text:
+        # Nothing to transform; emit nothing and succeed (pass-through).
+        return
+
+    user_msg = "<TRANSCRIPT>\n%s\n</TRANSCRIPT>" % raw_input_text
+
+    request_body = {
+        "system_instruction": {"parts": [{"text": system_prompt}]},
+        "contents": [{"role": "user", "parts": [{"text": user_msg}]}],
+        "generationConfig": {"temperature": 0.2},
+    }
+
+    url = "%s/%s:generateContent?key=%s" % (API_BASE, model, api_key)
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(request_body).encode("utf-8"),
+        headers={"content-type": "application/json"},
+        method="POST",
+    )
+
+    # One round-trip. urllib raises HTTPError for non-2xx (so we can still read
+    # the error body, like the bash version surfaced the raw 5xx JSON), and
+    # URLError/timeout for transport failures.
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            response_text = resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as e:
+        body = ""
+        try:
+            body = e.read().decode("utf-8", errors="replace")
+        except Exception:
+            pass
+        sys.stderr.write(
+            "voiceitt-transform: Gemini returned HTTP %s. Raw response:\n%s\n"
+            % (e.code, body)
+        )
+        sys.exit(1)
+    except (urllib.error.URLError, socket.timeout, TimeoutError) as e:
+        reason = getattr(e, "reason", e)
+        fail("request failed (timeout cap %ss): %s" % (timeout, reason), code=1)
+
+    # Don't let a non-JSON 200 (rare, but seen with intermediary error pages)
+    # crash silently — log the raw body if parsing fails, mirroring the bash
+    # jq-error branch.
+    try:
+        parsed = json.loads(response_text)
+    except json.JSONDecodeError as e:
+        sys.stderr.write(
+            "voiceitt-transform: failed to parse Gemini response as JSON: %s\n"
+            "voiceitt-transform: raw response:\n%s\n" % (e, response_text)
+        )
+        sys.exit(1)
+
+    # Pull .candidates[0].content.parts[0].text, defaulting to empty (matches
+    # the bash `// empty`). Any structural surprise → treat as empty → fail.
+    cleaned = ""
+    try:
+        cleaned = parsed["candidates"][0]["content"]["parts"][0]["text"] or ""
+    except (KeyError, IndexError, TypeError):
+        cleaned = ""
+
+    if not cleaned:
+        sys.stderr.write(
+            "voiceitt-transform: empty .candidates[0].content.parts[0].text "
+            "from Gemini. Raw response:\n%s\n" % response_text
+        )
+        sys.exit(1)
+
+    # stdout = clean text only, no trailing newline (matches bash `printf '%s'`).
+    sys.stdout.write(cleaned)
+
+
+if __name__ == "__main__":
+    main()

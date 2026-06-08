@@ -77,8 +77,8 @@ if ! command -v python3 &>/dev/null; then
 fi
 
 # Step 2: Install required packages
-log_info "Installing required packages (cliclick, jq)..."
-brew install cliclick jq
+log_info "Installing required packages (cliclick)..."
+brew install cliclick
 
 # Step 3: Set up GOOGLE_API_KEY (if provided)
 if [ "$API_KEY_PROVIDED" = true ] || [ -n "${GOOGLE_API_KEY:-}" ]; then
@@ -104,7 +104,7 @@ fi
 log_info "Setting up Raycast Script Command symlinks..."
 mkdir -p "$RAYCAST_DIR"
 
-# List of scripts to symlink (excluding voiceitt-transform as it's resolved via realpath)
+# List of scripts to symlink (excluding voiceitt-transform.py as it's resolved via realpath)
 SCRIPTS_TO_SYMLINK=(
   open-voiceitt.sh
   load-file-to-scratchpad.sh

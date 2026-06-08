@@ -11,11 +11,13 @@ set -e
 CLICLICK="/opt/homebrew/bin/cliclick"
 
 # Resolve this script's real directory (follows symlinks) so we can find
-# voiceitt-transform next to it regardless of where Raycast symlinked
-# the script from.
+# the repo root regardless of where Raycast symlinked the script from.
+# voiceitt-transform.py lives in bridge/ (the repo's Python home), one
+# level up from this raycast/ script.
 SCRIPT_REAL="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$0")"
 SCRIPT_DIR="$(dirname "$SCRIPT_REAL")"
-TRANSFORM="$SCRIPT_DIR/voiceitt-transform"
+REPO_DIR="$(dirname "$SCRIPT_DIR")"
+TRANSFORM="$REPO_DIR/bridge/voiceitt-transform.py"
 
 # Source $VOICEITT_BRIDGE_DIR/env so voiceitt-transform sees GOOGLE_API_KEY
 # even if Raycast didn't inherit it from the user's shell (lesson 16).
