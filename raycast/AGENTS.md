@@ -1,8 +1,10 @@
 # AGENTS.md — `raycast/` conventions
 
-Raycast Script Commands (bash, with `@raycast.*` header metadata) and
-the MVP `voiceitt-transform` cleanup script (Python 3 stdlib —
-`urllib`/`json`, no `curl`/`jq`/pip deps; ported from bash). The
+Raycast Script Commands (bash, with `@raycast.*` header metadata).
+The cleanup CLI they shell out to — `voiceitt-transform.py` (Python 3
+stdlib — `urllib`/`json`, no `curl`/`jq`/pip deps; ported from bash) —
+now lives in [`../bridge/`](../bridge) (the repo's Python home), not
+here; the `send-to-*.sh` scripts resolve it via the repo root. The
 Raycast side stays Script Commands until prompt-picker / preferences
 work forces a flip to a Raycast Extension (HANDOFF answered open
 decision #2).

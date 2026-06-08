@@ -104,7 +104,7 @@ fi
 log_info "Setting up Raycast Script Command symlinks..."
 mkdir -p "$RAYCAST_DIR"
 
-# List of scripts to symlink (excluding voiceitt-transform as it's resolved via realpath)
+# List of scripts to symlink (excluding voiceitt-transform.py as it's resolved via realpath)
 SCRIPTS_TO_SYMLINK=(
   open-voiceitt.sh
   load-file-to-scratchpad.sh

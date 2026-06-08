@@ -21,7 +21,7 @@
 # execute rather than transcripts to clean up.
 #
 # Usage:
-#   echo "um so like make a directory called source" | raycast/voiceitt-transform
+#   echo "um so like make a directory called source" | bridge/voiceitt-transform.py
 #
 # Requires:
 #   - GOOGLE_API_KEY in env (get one at https://aistudio.google.com/apikey)
@@ -53,7 +53,7 @@ def find_prompt_file():
 
     Mirrors the bash resolution order so behaviour is identical whether the
     script is invoked from the repo or via the install.sh symlink at
-    ~/.config/voiceitt-bridge/voiceitt-transform:
+    ~/.config/voiceitt-bridge/voiceitt-transform.py:
       1. $VOICEITT_BRIDGE_CONFIG/prompts/default.md
          (default $HOME/.config/voiceitt-bridge/prompts/default.md)
       2. <script's real dir>/../prompts/default.md  (repo checkout)
