@@ -4,7 +4,7 @@ The MVP HTTP server: `serve.py`, the prototype's `ThreadingHTTPServer`
 carried over from `salvage/bridge/serve.py`. Four endpoints; it serves
 the scratchpad and shells out to the cleanup transform.
 
-> **Revised 2026-06-06:** the MVP/post-MVP reversal in `../HANDOFF.md`
+> **Revised 2026-06-06:** the MVP/post-MVP boundary in `../PROJECT-SPEC.md`
 > withdrew the stdlib-only constraint. This file is **no longer
 > restricted to stdlib-only**. MVP Python may take third-party
 > dependencies — managed with **`uv`**, never bare `pip` — and may
@@ -16,10 +16,9 @@ the scratchpad and shells out to the cleanup transform.
 > + `src/voiceitt_bridge/` re-architecture remains post-MVP.
 
 > Required reading before touching anything here:
-> 1. [`../HANDOFF.md`](../HANDOFF.md) — particularly the "Endpoints
->    (carry over verbatim)" table, which is the contract this file
->    implements, and the revised MVP / post-MVP split blockquote, which
->    explains why this stays `serve.py` rather than a FastAPI app.
+> 1. [`../PROJECT-SPEC.md`](../PROJECT-SPEC.md) — particularly the
+>    endpoint contract and the MVP / post-MVP split, which explain why
+>    this stays `serve.py` rather than a FastAPI app.
 > 2. [`../salvage/notes/LESSONS-LEARNED.md`](../salvage/notes/LESSONS-LEARNED.md)
 >    lessons 23, 24, 25 (SSE design, single-load-slot rule,
 >    `$HOME`-confinement on `/load`).
@@ -57,7 +56,7 @@ the scratchpad and shells out to the cleanup transform.
   fixes). Internal docstring references to "ERD §x.y", "ROADMAP §1",
   and "PARKING-LOT 2026-05-13 → graduated" are prototype-era
   references; the equivalent context in this repo lives in
-  `HANDOFF.md`, `salvage/notes/LESSONS-LEARNED.md`, and
+  `PROJECT-SPEC.md`, `salvage/notes/LESSONS-LEARNED.md`, and
   `salvage/notes/PARKING-LOT.md`. **Do not "clean up" those
   references** as a drive-by — the carried-from-salvage origin is
   still useful context even now that the file has diverged.

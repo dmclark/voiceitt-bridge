@@ -3,8 +3,8 @@
 The Voiceitt scratchpad page. Vanilla HTML, CSS, and JavaScript. No
 build step, no framework, no bundler, no preprocessor.
 
-> Read [`../HANDOFF.md`](../HANDOFF.md) (non-negotiables 1–5, 17, 19,
-> 22) and the Voiceitt-specific section of
+> Read [`../PROJECT-SPEC.md`](../PROJECT-SPEC.md) (especially
+> non-negotiables 1–5 and 8) and the Voiceitt-specific section of
 > [`../salvage/notes/LESSONS-LEARNED.md`](../salvage/notes/LESSONS-LEARNED.md)
 > (lessons 1–5, 17–22, 27–28) before changing anything here.
 

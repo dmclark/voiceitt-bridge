@@ -1,6 +1,6 @@
 # Parking lot
 
-**[📖 README](../README.md)** · **[📋 HANDOFF](../HANDOFF.md)** · **[🅿️ Parking lot](./PARKING-LOT.md)**
+**[📖 README](../README.md)** · **[📋 Project spec](../PROJECT-SPEC.md)** · **[🅿️ Parking lot](./PARKING-LOT.md)**
 
 ---
 

@@ -6,11 +6,11 @@ stdlib — `urllib`/`json`, no `curl`/`jq`/pip deps; ported from bash) —
 now lives in [`../bridge/`](../bridge) (the repo's Python home), not
 here; the `send-to-*.sh` scripts resolve it via the repo root. The
 Raycast side stays Script Commands until prompt-picker / preferences
-work forces a flip to a Raycast Extension (HANDOFF answered open
-decision #2).
+work forces a flip to a Raycast Extension (`PROJECT-SPEC.md` answered
+decision: Script Commands now, Extension later).
 
 > **Required reading before editing anything here:**
-> 1. [`../HANDOFF.md`](../HANDOFF.md) non-negotiables 1, 6, 7, 8, 9
+> 1. [`../PROJECT-SPEC.md`](../PROJECT-SPEC.md) non-negotiables 1, 6, 7, 8, 9
 >    (input synthesis + clipboard + per-target hotkey rules).
 > 2. [`../salvage/snippets/cliclick-paste-ritual.md`](../salvage/snippets/cliclick-paste-ritual.md)
 >    — **byte-for-byte source of truth**. Any new `send-to-*` script
@@ -140,8 +140,7 @@ mention this to the user so they don't mistake it for an error.
 
 - ❌ `cliclick t:"..."` (type-instead-of-paste). Per-character
   keystrokes including modifier-bearing chars; Sticky Keys turns
-  this into latched-modifier chaos. (HANDOFF "Considered and
-  rejected".)
+  this into latched-modifier chaos. (`PROJECT-SPEC.md` "Rejected general paste strategies".)
 - ❌ `osascript -e '... keystroke "v" using command down'`. Silently
   swallowed under Sticky Keys. (Lesson 6, non-negotiable 1.)
 - ❌ `tell application "iTerm" to write text "…" newline yes`.

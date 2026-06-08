@@ -4,12 +4,12 @@ You are working on the **voiceitt-bridge** repo: the next-gen
 successor to the `voiceitt-amp-bridge` prototype. Before making any
 non-trivial change, read these in order:
 
-1. [`HANDOFF.md`](./HANDOFF.md) — the spec, the MVP / post-MVP split,
+1. [`PROJECT-SPEC.md`](./PROJECT-SPEC.md) — the spec, the MVP / post-MVP split,
    the non-negotiables, and the answered open decisions. Re-read the
    non-negotiables list before touching anything in `raycast/`,
    `web/`, or (when it exists) `src/`.
 2. [`salvage/notes/LESSONS-LEARNED.md`](./salvage/notes/LESSONS-LEARNED.md)
-   — 37 numbered entries. The non-negotiables in `HANDOFF.md` cite
+   — 37 numbered entries. The non-negotiables in `PROJECT-SPEC.md` cite
    their lesson numbers; the *story* behind each constraint lives
    here.
 3. The per-directory `AGENTS.md` for whichever area you're editing
@@ -17,13 +17,13 @@ non-trivial change, read these in order:
 
 ## Hard ground rules (these never bend)
 
-- **Do not violate the non-negotiables in `HANDOFF.md`.** Every one is
+- **Do not violate the non-negotiables in `PROJECT-SPEC.md`.** Every one is
   the result of a debugging session you didn't have to suffer through.
   If you think a non-negotiable should be revisited, surface it
   explicitly — don't quietly route around it.
 - **MVP ≠ post-MVP.** *(Revised 2026-06-06 — the earlier "MVP ships
   no Python architecture" rule is withdrawn; see the dated
-  decision-reversal note in `HANDOFF.md`.)* MVP **may** use Python
+  MVP/post-MVP boundary in `PROJECT-SPEC.md`.)* MVP **may** use Python
   freely: third-party dependencies are allowed — managed with
   **`uv`**, never bare `pip`, so a `pyproject.toml` + lockfile are
   legitimate MVP artifacts — and multi-file Python is fine.
@@ -41,8 +41,7 @@ non-trivial change, read these in order:
   parked idea graduates to real work or a statement is superseded,
   delete the line (`notes/PARKING-LOT.md` already says to). This does
   **not** apply to `salvage/` (stays verbatim) or to text explicitly
-  marked *historical* / *superseded* (e.g. in `HANDOFF.md`), which is
-  kept on purpose.
+  marked *historical* / *superseded*, which is kept on purpose.
 - **The prototype on `localhost:7531` is load-bearing.** The user is
   actively dictating through it. Do not change anything that could
   break it without asking.
@@ -54,7 +53,7 @@ non-trivial change, read these in order:
 | Concern | Location |
 |---|---|
 | User-facing setup, daily flow, hotkey table | [`README.md`](./README.md) |
-| Vision, non-negotiables, open decisions, MVP / post-MVP split | [`HANDOFF.md`](./HANDOFF.md) |
+| Vision, non-negotiables, answered decisions, MVP / post-MVP split | [`PROJECT-SPEC.md`](./PROJECT-SPEC.md) |
 | LLM system prompts | [`prompts/`](./prompts/) |
 | Scratchpad page (vanilla HTML/CSS/JS) | [`web/`](./web/) + [`web/AGENTS.md`](./web/AGENTS.md) |
 | MVP HTTP server (stdlib `serve.py`) | [`bridge/`](./bridge/) + [`bridge/AGENTS.md`](./bridge/AGENTS.md) |
@@ -80,6 +79,6 @@ non-trivial change, read these in order:
 
 ## When in doubt
 
-Ask the user. The "Open decisions for the user" section of
-`HANDOFF.md` is short and was answered explicitly; for new decisions
-of similar weight, surface them the same way before committing.
+Ask the user. The answered-decisions section of `PROJECT-SPEC.md`
+records choices the user already made; for new decisions of similar
+weight, surface them the same way before committing.

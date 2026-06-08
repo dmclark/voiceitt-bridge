@@ -2,7 +2,7 @@
 
 ## 1. Core Infrastructure & Tooling
 - [x] **Standardized Project Structure**: Migrate from `voiceitt-amp-bridge` structure to a clean, decoupled repository (`voiceitt-bridge`).
-- [ ] **Dependency Management**: Transition to `uv` for Python management with a proper `pyproject.toml` and lockfile (no bare `pip` installs).
+- [x] **Dependency Management**: Transition to `uv` for Python management with a proper `pyproject.toml` and lockfile (no bare `pip` installs).
 - [x] **Static Prompt File**: Ensure `prompts/default.md` exists and is consumed by `voiceitt-transform` (single prompt, no switching). *Prompt management/switching and the prompt-picker are post-MVP — see the Post-MVP section below.*
 
 ## 2. The Bridge (MVP Backend)
@@ -28,19 +28,19 @@
 - [x] **Clipboard Rituals**: Implement the "Paste Ritual" to ensure text is correctly placed in target apps after commands are triggered.
 - [x] **Context-Aware Commands**: Raycast commands that distinguish between raw and transformed versions based on state.
 
-## 5. Non-Negotiable MVP Requirements (from HANDOFF.md)
-- [ ] **Zero Breaking Changes**: Ensure transition maintains all core functionality of the prototype.
+## 5. Non-Negotiable MVP Requirements (from PROJECT-SPEC.md)
+- [x] **Zero Breaking Changes**: Ensure transition maintains all core functionality of the prototype.
 - [x] **Standardized Fallbacks**: Always return a transcript if transformation fails.
 - [ ] **Low Latency**: Minimize overhead in the bridge processing pipeline.
 
 ## Post-MVP (deferred — NOT part of MVP completion)
 - [ ] **Prompt Management**: System for organizing/isolating multiple system prompts beyond the single `prompts/default.md`.
-- [ ] **Portability / Prompt-Picker Logic**: In-page dropdown in the scratchpad header (and later a Raycast preference UI) to switch cleanup prompts without hardcoding. (HANDOFF post-MVP trigger; README "What's Not in This MVP".)
+- [ ] **Portability / Prompt-Picker Logic**: In-page dropdown in the scratchpad header (and later a Raycast preference UI) to switch cleanup prompts without hardcoding. (`PROJECT-SPEC.md` post-MVP trigger; README "What's Not in This MVP".)
 - [ ] **Prompt Loading Engine**: Selection-ID-keyed loader to fetch the correct prompt from `prompts/` — depends on the picker above.
 
 ## Summary Checklist for Completion
-- [ ] **Infrastructure:** `uv` setup + `pyproject.toml` + `/prompts/` folder.
+- [x] **Infrastructure:** `uv` setup + `pyproject.toml` + `/prompts/` folder.
 - [x] **Backend:** `bridge/serve.py` updated with robust transformation (fail-open). *(Selection-ID prompt loading is post-MVP.)*
 - [x] **Frontend:** `web/` contains 2-pane UI, "AI-off" toggle, and "Faux Caret".
 - [x] **Integration:** Raycast scripts implemented with standard `cliclick` paste ritual.
-- [ ] **Validation:** Successful end-to-end test (Dictate $\rightarrow$ Cleanup $\rightarrow$ Send) via a Raycast hotkey.
+- [x] **Validation:** Successful end-to-end test (Dictate $\rightarrow$ Cleanup $\rightarrow$ Send) via a Raycast hotkey.

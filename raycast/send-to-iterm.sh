@@ -84,8 +84,8 @@ else
 fi
 
 # 7) Write the cleaned (or raw, on fail-open) text directly into the
-#    current iTerm session via AppleScript. Per HANDOFF "Clipboard hygiene
-#    and paste strategies": `write text ... newline NO` is atomic, fast,
+#    current iTerm session via AppleScript. Per PROJECT-SPEC "Clipboard
+#    hygiene and paste strategies": `write text ... newline NO` is atomic, fast,
 #    supported by iTerm2's published AppleScript dictionary, and sidesteps
 #    both the clipboard and any keystroke synthesis on this paste step
 #    (so non-negotiables 1, 6-9 don't even come into play here).
