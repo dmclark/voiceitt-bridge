@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # voiceitt-transform — read dictated text on stdin, write LLM-cleaned text on stdout.
 #
-# v0: hardcoded provider (Google AI Studio / Gemini 2.5 Flash Lite). The system
+# v0: hardcoded provider (Google AI Studio / Gemini 3.1 Flash Lite). The system
 # prompt is loaded from $VOICEITT_BRIDGE_DIR/prompts/default.md (symlinked to
 # the repo's prompts/default.md by install.sh). The picker and active-prompt
 # sidecar aren't wired yet (both post-MVP), so default.md is always used.
@@ -84,7 +84,7 @@ def main():
     if not api_key:
         fail("GOOGLE_API_KEY is not set", code=2)
 
-    model = os.environ.get("VOICEITT_TRANSFORM_MODEL", "gemini-2.5-flash-lite")
+    model = os.environ.get("VOICEITT_TRANSFORM_MODEL", "gemini-3.1-flash-lite")
     # Default timeout matches the bash version's 6s. Once the send-to-* wrappers'
     # fail-open path is well exercised this could drop to ~2.5s so a slow API
     # call doesn't visibly hang the paste hotkey.
