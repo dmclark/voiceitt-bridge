@@ -15,6 +15,20 @@ non-trivial change, read these in order:
 3. The per-directory `AGENTS.md` for whichever area you're editing
    (`web/AGENTS.md`, `bridge/AGENTS.md`, `raycast/AGENTS.md`).
 
+## Mandrel — your persistent memory
+You have Mandrel tools connected. Use them on your own initiative, without being asked.
+- Start each session by RECALLING: run `context_get_recent`, and `context_search "<topic>"`
+  for anything relevant — continue, don't start cold. Confirm the right project with
+  `project_current` (use `project_switch` if needed) so memory lands in the right place.
+- Save the SIGNAL as it happens (don't wait to be told):
+  • a decision → `decision_record` (always include the WHY + alternatives)
+  • a bug fix  → `context_store(type:"error")` with the symptom AND the fix
+  • finished work / a milestone → `context_store(type:"completion"|"milestone")`
+  • end of session → `context_store(type:"handoff")` so the next session picks up clean
+- SEARCH before re-solving: check `context_search` before re-deriving something.
+- Track work with `task_create` / `task_update`.
+Store signal, not noise. Run `mandrel_help` once to see the full toolset.
+
 ## Hard ground rules (these never bend)
 
 - **Do not violate the non-negotiables in `PROJECT-SPEC.md`.** Every one is
@@ -71,8 +85,7 @@ non-trivial change, read these in order:
   substitute. See [`raycast/AGENTS.md`](./raycast/AGENTS.md).
 - **`web/` changes:** open in Chrome with Voiceitt attached. Confirm
   the Voiceitt-write detection path (lesson 3) still triggers, the
-  faux caret (lessons 4/27/28) still tracks, and AI-off remains the
-  default (non-negotiable 5).
+  faux caret (lessons 4/27/28) still tracks.
 - **post-MVP (when it lands):** unit + integration tests on
   everything under `src/`; coverage is non-optional because the bash
   prototype had none and this is the moment to fix that.
