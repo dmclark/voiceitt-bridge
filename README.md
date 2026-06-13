@@ -1,5 +1,11 @@
 # Voiceitt-bridge
 
+> **Development branch note:** this `v1` branch is the in-progress
+> post-MVP re-architecture of `voiceitt-bridge`. The current working
+> scratchpad/Raycast workflow is still based on `bridge/serve.py`; new
+> FastAPI-backed `/api/*` work is being built alongside it and should
+> not be treated as the stable daily-use path yet.
+
 `voiceitt-bridge` lets you dictate with [Voiceitt](https://www.voiceitt.com/)
 in Chrome, optionally clean the text with an LLM, and send the result
 into local macOS apps via [Raycast](https://www.raycast.com/) hotkeys.
@@ -26,6 +32,10 @@ and send the resulting text to the Mac app where you actually need it.
 ---
 
 ## 🚀 Quick Start
+
+The steps below describe the current MVP daily-use workflow. On the
+`v1` branch, new architecture work is intentionally being added beside
+that workflow rather than replacing it immediately.
 
 These steps are also available as an automated script:
 
