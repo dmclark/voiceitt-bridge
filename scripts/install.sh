@@ -109,6 +109,7 @@ SCRIPTS_TO_SYMLINK=(
   open-voiceitt.sh
   load-file-to-scratchpad.sh
   send-to-iterm.sh
+  send-to-supacode.sh
   send-to-vscode.sh
 )
 

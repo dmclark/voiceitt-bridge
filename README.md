@@ -76,10 +76,21 @@ Manual setup:
 6. **Set up the Raycast scripts**:
    ```bash
    mkdir -p ~/.config/raycast/scripts
-   for s in open-voiceitt.sh load-file-to-scratchpad.sh send-to-iterm.sh send-to-vscode.sh; do
+   for s in open-voiceitt.sh load-file-to-scratchpad.sh send-to-iterm.sh send-to-supacode.sh send-to-vscode.sh; do
      ln -sf "$PWD/raycast/$s" ~/.config/raycast/scripts/"$s"
    done
    ```
+
+   To add your own preferred target app, generate a per-app Script Command
+   with `scripts/add-raycast-target.sh`. For example:
+   ```bash
+   osascript -e 'id of application "Supacode"'
+   scripts/add-raycast-target.sh --name "Supacode" --bundle-id "app.supabit.supacode" --icon "🟪"
+   ```
+
+   The script creates `raycast/send-to-<app>.sh` and symlinks it into
+   `~/.config/raycast/scripts/`. After that, assign a hotkey in Raycast
+   for the new "Send to <App>" command.
 
 7. **Grant necessary permissions**:
    - **Accessibility**: System Settings → Privacy & Security → Accessibility → Add Raycast
@@ -178,9 +189,37 @@ This stops Raycast's own clipboard history from logging every dictation transiti
 | `raycast/open-voiceitt.sh` | Open the scratchpad (raises existing Chrome window if found; else starts `bridge/serve.py` on `:7531` and opens a new window) | — |
 | `raycast/load-file-to-scratchpad.sh` | macOS open-panel → `POST /load` into the scratchpad | — |
 | `raycast/send-to-iterm.sh` | Cleanup-at-send → iTerm `write text … newline NO` | Bypasses clipboard |
+| `raycast/send-to-supacode.sh` | Cleanup-at-send → Supacode via clipboard + cliclick Cmd+V | Clipboard (transient) |
 | `raycast/send-to-vscode.sh` | Cleanup-at-send → VS Code via clipboard + cliclick Cmd+V | Clipboard (transient) |
 
-**Other targets** (Slack, Notes, browser textareas) are not yet wired in MVP — add by copying `raycast/send-to-vscode.sh`, changing `TARGET_BUNDLE_ID`, and the `@raycast.title`. Each new target needs its own Automation-permission prompt the first time it fires.
+### Adding preferred app hotkeys
+
+Each preferred target app needs its own `send-to-*` Raycast Script Command
+and hotkey. Do not use one generic dispatcher: Raycast takes focus when a
+hotkey fires, so the target app must be fixed ahead of time.
+
+1. Find the app's bundle id:
+   ```bash
+   osascript -e 'id of application "App Name"'
+   ```
+
+2. Generate and install the Raycast command:
+   ```bash
+   scripts/add-raycast-target.sh --name "App Name" --bundle-id "com.example.App" --icon "📤"
+   ```
+
+   This creates `raycast/send-to-app-name.sh` from the VS Code clipboard
+   paste pattern and symlinks it into `~/.config/raycast/scripts/`. Use
+   `--no-install` if you only want to generate the repo file, or
+   `--overwrite` if you intentionally want to replace an existing target
+   script.
+
+3. In Raycast, assign a hotkey to the new "Send to App Name" command.
+
+4. On first use, accept the macOS Automation prompt allowing Raycast to
+   control that app. Then smoke-test with Sticky Keys ON: dictate into
+   the scratchpad, fire the hotkey, and confirm the text lands in the
+   target app.
 
 ---
 
