@@ -7,30 +7,57 @@
 </head>
 <body>
   <header>
-    <span>Voiceitt Scratchpad — dictate here, then trigger your Raycast hotkey.</span>
+    <span>Voiceitt Scratchpad <span class="version-badge" title="Local FastAPI runtime">local / :7532</span> — dictate here, then trigger your Raycast hotkey.</span>
     <span id="status" aria-live="polite" title="LLM transform status">idle</span>
+    <label id="prompt-picker-label" title="Prompt picker. Falls back to the packaged default prompt when /api/* is unavailable.">
+      Prompt
+      <select id="prompt-picker" disabled>
+        <option value="">default</option>
+      </select>
+    </label>
+    <button id="prompt-manager-toggle" type="button" title="Open prompt management controls"
+      aria-controls="prompt-manager" aria-expanded="false">Prompts</button>
+    <nav id="api-links" aria-label="API links">
+      <span id="api-health-status" title="API health endpoint status">api: checking</span>
+      <a id="api-prompts-link" href="http://localhost:7532/api/prompts/preview" target="_blank" rel="noreferrer">prompts</a>
+      <a id="api-docs-link" href="http://localhost:7532/docs" target="_blank" rel="noreferrer">docs</a>
+    </nav>
     <label id="ai-toggle-label" title="When checked, each dictated phrase is sent through the LLM transform. Off by default. ⌘↵ in the input pane runs a one-shot transform regardless.">
       <input type="checkbox" id="ai-toggle"> AI
     </label>
-    <button id="load" title="Load a local file (≤ 50 KB, UTF-8) into the input pane">Load…</button>
     <button id="clear" title="Clear (⌘K)">Clear</button>
-    <!-- Hidden file picker driven by the Load… button. We can't use the
-         server's POST /load path here because browsers don't expose the
-         absolute filesystem path from <input type="file"> for security
-         reasons — so this path is intentionally browser-only and reads
-         the file via FileReader. The Raycast loader (which DOES know the
-         absolute path) is still the way to round-trip server-side state. -->
-    <input id="file-picker" type="file" style="display:none">
   </header>
-  <div id="loaded-strip" title="Loaded via Raycast → 'Load File into Scratchpad'">
-    <span class="label">file</span><span id="loaded-path"></span>
-  </div>
+  <section id="prompt-manager" class="prompt-manager" aria-label="Prompt management" hidden>
+    <div class="prompt-manager-toolbar">
+      <label>
+        Prompt
+        <select id="prompt-manager-list" disabled></select>
+      </label>
+      <button id="prompt-new" type="button">New</button>
+      <button id="prompt-set-active" type="button" disabled>Set active</button>
+      <button id="prompt-archive" type="button" disabled>Archive</button>
+      <span id="prompt-manager-status" aria-live="polite">closed</span>
+    </div>
+    <label class="prompt-id-label">
+      Prompt ID
+      <input id="prompt-id" type="text" inputmode="latin" autocomplete="off" spellcheck="false"
+        placeholder="plain-language" aria-describedby="prompt-help">
+    </label>
+    <p id="prompt-help" class="prompt-help">Use lowercase letters, numbers, and hyphens. Save validates before writing.</p>
+    <textarea id="prompt-editor" spellcheck="true" aria-label="Prompt text"
+      placeholder="Prompt text appears here. Select an existing prompt or create a new one."></textarea>
+    <div class="prompt-manager-actions">
+      <button id="prompt-validate" type="button" disabled>Validate</button>
+      <button id="prompt-save" type="button" disabled>Save</button>
+      <span id="prompt-validation" aria-live="polite"></span>
+    </div>
+  </section>
   <div class="pane">
     <div class="pane-label">Dictated</div>
     <textarea id="pad" autofocus placeholder="Start dictating with Voiceitt…"></textarea>
   </div>
   <div class="pane" id="pane-out">
-    <div class="pane-label">To be pasted</div>
+    <div class="pane-label">To be pasted <span id="preview-status" aria-live="polite"></span></div>
     <textarea id="pad-out"
       placeholder="LLM-cleaned text appears here after each dictated phrase. Edit before sending if needed; ⌘↵ in the top pane re-runs the transform."></textarea>
   </div>
