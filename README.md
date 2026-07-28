@@ -1,270 +1,152 @@
-# Voiceitt-bridge
+# Voiceitt Bridge
 
-`voiceitt-bridge` lets you dictate with [Voiceitt](https://www.voiceitt.com/)
-in Chrome, optionally clean the text with an LLM, and send the result
-into local macOS apps via [Raycast](https://www.raycast.com/) hotkeys.
+Voiceitt Bridge turns [Voiceitt](https://www.voiceitt.com/) dictation in Chrome into text you can review and send to local macOS apps with [Raycast](https://www.raycast.com/). It is the FastAPI-based successor to the [voiceitt-amp-bridge prototype](https://github.com/dmclark/voiceitt-amp-bridge).
 
-It is the successor to the
-[voiceitt-amp-bridge](https://github.com/dmclark/voiceitt-amp-bridge)
-prototype. The current project constraints and MVP/post-MVP boundary live
-in [`PROJECT-SPEC.md`](./PROJECT-SPEC.md); this README is the user-facing
-setup and daily-use guide.
+![Voiceitt Scratchpad showing dictated text and the cleaned text ready to paste](assets/voiceitt-scratchpad.png)
 
-With it, you can:
-- dictate text with Voiceitt, a Chrome-only voice dictation extension for users with atypical speech;
-- optionally clean it up with an LLM for grammar, punctuation, and light formatting;
-- send the result straight into **whatever Mac app you're working in** — a terminal, an editor (`VS Code`), a chat tool (`Slack`, `Discord`, `Messages`), or anything else that accepts a paste — via Raycast hotkeys.
+## Features
 
-## Why
+- A local FastAPI-served Voiceitt scratchpad, with no frontend build step.
+- Optional Gemini cleanup that fails open to the raw transcript if the key, network, provider, or server is unavailable.
+- Editable raw and cleaned preview panes with visible transform and API status.
+- Backend-owned prompt selection plus local create, edit, validate, activate, and archive controls.
+- Backend-owned outgoing state, so Raycast sends the intended text regardless of browser focus.
+- Deterministic per-target Raycast hotkeys rather than unreliable focus detection.
+- Sticky-Keys-safe clipboard save/restore for clipboard targets, and direct iTerm writing that never touches the clipboard.
+- Bounded, in-memory, metadata-only transform diagnostics; transcript content is not included.
+- AI cleanup off by default and explicitly controlled in the page.
+- `uv`-based installation and runtime.
 
-Voiceitt only works in Chrome. Most writing happens outside the browser.
-[Raycast](https://www.raycast.com/) has dictation features, but it does
-not support atypical speech. By combining Voiceitt, a local browser
-scratchpad, and Raycast Script Commands, you can dictate with Voiceitt
-and send the resulting text to the Mac app where you actually need it.
+## Requirements
 
----
+- macOS, Google Chrome, and the Voiceitt Chrome extension/account
+- [Raycast](https://www.raycast.com/)
+- [Homebrew](https://brew.sh/), `uv`, and Python 3.12 or newer
+- `cliclick` for clipboard-based target commands
+- Optional: a [Google Gemini API key](https://aistudio.google.com/apikey)
 
-## 🚀 Quick Start
-
-These steps are also available as an automated script:
+## Quick start
 
 ```bash
-./scripts/install.sh
-# or, to configure cleanup in one step:
-./scripts/install.sh YOUR_GOOGLE_API_KEY
+git clone https://github.com/dmclark/voiceitt-bridge.git
+cd voiceitt-bridge
+scripts/install.sh
 ```
 
-Manual setup:
+The installer installs `cliclick` and `uv` with Homebrew and symlinks the included Raycast Script Commands. You may pass a Gemini key during setup:
 
-1. **Install prerequisites** (if you don't already have them):
-   ```bash
-
-   # Install Homebrew if you don't have it
-   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    
-   # Install required tools
-   brew install cliclick
-   
-   # Verify Python 3 is available. The current bridge is stdlib-only;
-   # bridge/pyproject.toml records the uv-managed Python project metadata.
-   python3 --version
-   ```
-
-2. **Get a Google Gemini API key**:
-   - Go to [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-   - Create a free API key
-
-3. **Set up your API key** (recommended for LLM cleanup):
-   ```bash
-   mkdir -p ~/.config/voiceitt-bridge
-   echo 'GOOGLE_API_KEY=your_key_here' >> ~/.config/voiceitt-bridge/env
-   chmod 600 ~/.config/voiceitt-bridge/env
-   ```
-
-   If you skip this, the bridge still works: cleanup fails open and the
-   raw dictated transcript is sent instead.
-
-4. **Install Voiceitt**:
-   - Install [Google Chrome](https://www.google.com/chrome/) if you don't have it
-   - Sign up for a [Voiceitt Account](https://web.voiceitt.com/sign-up) (free 30-day trial)
-   - Install the [Voiceitt Chrome extension](https://chromewebstore.google.com/) (search "Voiceitt")
-
-5. **Install Raycast**:
-   - Download and install [Raycast](https://www.raycast.com)
-
-6. **Set up the Raycast scripts**:
-   ```bash
-   mkdir -p ~/.config/raycast/scripts
-   for s in open-voiceitt.sh load-file-to-scratchpad.sh send-to-iterm.sh send-to-supacode.sh send-to-vscode.sh; do
-     ln -sf "$PWD/raycast/$s" ~/.config/raycast/scripts/"$s"
-   done
-   ```
-
-   To add your own preferred target app, generate a per-app Script Command
-   with `scripts/add-raycast-target.sh`. For example:
-   ```bash
-   osascript -e 'id of application "Supacode"'
-   scripts/add-raycast-target.sh --name "Supacode" --bundle-id "app.supabit.supacode" --icon "🟪"
-   ```
-
-   The script creates `raycast/send-to-<app>.sh` and symlinks it into
-   `~/.config/raycast/scripts/`. After that, assign a hotkey in Raycast
-   for the new "Send to <App>" command.
-
-7. **Grant necessary permissions**:
-   - **Accessibility**: System Settings → Privacy & Security → Accessibility → Add Raycast
-   - **Automation**: When you first use each send-to-* script, macOS will prompt you to grant automation permission to Raycast for the target app
-
-8. **Launch the scratchpad**:
-   - Open Raycast and search for "Open Voiceitt Scratchpad"
-   - This will start the local server and open Chrome to the interface
-
-9. **Start dictating**:
-   - Click the microphone icon in the Voiceitt extension
-   - Dictate your text
-   - Use your Raycast hotkeys to send the selected text — cleaned when AI is on, raw when AI is off or cleanup fails — to your desired application
-
----
-
-## 📋 What This Repo Contains
-
-```
-voiceitt-bridge/
-├── README.md         ← you are here
-├── PROJECT-SPEC.md   ← spec, non-negotiables, lessons pointers, answered decisions
-├── AGENTS.md         ← root routing doc for AI assistants
-├── prompts/          ← LLM system prompts (cleanup, …)
-├── web/              ← scratchpad page (vanilla HTML/CSS/JS, no build step)
-├── bridge/           ← HTTP server (serve.py) — serves web/, owns the four endpoints
-├── raycast/          ← Raycast Script Commands + the cleanup transform
-├── notes/            ← parking lot, todo list, design notes
-├── scripts/          ← dev convenience (toggle, install)
-└── salvage/          ← verbatim artifacts from the prototype; reference only
+```bash
+scripts/install.sh YOUR_GOOGLE_API_KEY
 ```
 
-**Note**: The `src/voiceitt_bridge/` directory (FastAPI app, prompt loader, framing module, pluggable providers) is the planned post-MVP re-architecture. MVP keeps `bridge/serve.py` as the server (Voiceitt won't attach to `file://` URLs, so a local HTTP server is required) — but MVP Python is free to take `uv`-managed dependencies, add a `pyproject.toml`, and span multiple files as needed. What's deferred is the FastAPI package rewrite, not Python itself.
+Then:
 
----
+1. Install and sign in to [Voiceitt](https://web.voiceitt.com/sign-up) and enable its Chrome extension.
+2. In System Settings → Privacy & Security → Accessibility, grant Raycast access.
+3. In Raycast, assign hotkeys to **Open Voiceitt Scratchpad** and each desired **Send to …** command.
+4. Run **Open Voiceitt Scratchpad**, dictate into the raw pane, review or edit the outgoing text, and use the target hotkey.
+5. Accept macOS Automation prompts the first time Raycast controls each target app.
 
-## 🔧 How It Works
+The local app opens at `http://localhost:7532/`; API docs are at `http://localhost:7532/docs`.
 
-Each `send-to-*` Raycast hotkey follows this flow:
+## Configuration
 
-1. Voiceitt dictation is captured from the scratchpad with the sentinel + poll clipboard ritual.
-2. If the scratchpad's AI toggle is on, `bridge/voiceitt-transform.py` processes the text via Gemini API (Python 3 stdlib — `urllib`, no `curl`/`jq`). If the AI toggle is off, the raw transcript is used.
-3. The selected text — cleaned when AI is on, raw when AI is off or cleanup fails — is sent to the target application:
-   - **iTerm**: Uses AppleScript `write text … newline NO` (bypasses clipboard)
-   - **Other apps** (VS Code, etc.): Uses clipboard + cliclick Cmd+V (Sticky-Keys-safe ritual)
+Gemini cleanup is optional. The recommended key location is server-side and user-only:
 
-The in-page AI toggle in `web/script.js` remains off by default
-(non-negotiable 5). The page mirrors that toggle to the local server so
-the Raycast send commands know whether to run cleanup-at-send.
+```bash
+mkdir -p ~/.config/voiceitt-bridge
+printf '%s\n' 'GOOGLE_API_KEY=your_key_here' > ~/.config/voiceitt-bridge/env
+chmod 600 ~/.config/voiceitt-bridge/env
+```
 
----
+An exported `GOOGLE_API_KEY` takes precedence. Other runtime settings:
 
-## ⚙️ Configuration
+| Variable | Default | Purpose |
+|---|---|---|
+| `VOICEITT_API_PORT` | `7532` | FastAPI and scratchpad port |
+| `VOICEITT_API_BASE` | `http://127.0.0.1:$VOICEITT_API_PORT/api` | API used by send commands |
+| `VOICEITT_TRANSFORM_MODEL` | `gemini-3.1-flash-lite` | Gemini model |
+| `VOICEITT_BRIDGE_CONFIG` | `~/.config/voiceitt-bridge` | Runtime config directory |
+| `VOICEITT_AI_MODE` | unset | Open with AI forced off (`0`) or on (`1`) |
 
-### GOOGLE_API_KEY
+AI is off by default. Its page setting persists in browser storage and can be overridden with `?ai=0` or `?ai=1`.
 
-`bridge/voiceitt-transform.py` requires a Google Gemini API key to clean
-up dictated text. **It will not run without `GOOGLE_API_KEY` in its
-environment** — this is the most common MVP setup failure.
+## Architecture and how it works
 
-**Two ways to provide it** (in order of preference):
+1. FastAPI serves `web/` and the local `/api/*` endpoints.
+2. The browser mirrors the AI setting, raw text, chosen outgoing text, and outgoing kind to `/api/scratchpad-state`.
+3. With AI enabled, `/api/transforms` frames the transcript, uses the backend-selected prompt, and calls Gemini. Any failure returns raw text rather than an empty result.
+4. Both text panes remain editable. The browser publishes the current sendable value whenever either pane changes.
+5. A target-specific Raycast command reads `outgoing_text` from the API. Clipboard targets activate a fixed bundle ID, paste with modifier-release delays that tolerate Sticky Keys, then restore the previous text clipboard. iTerm receives text through AppleScript `write text ... newline NO` and does not submit it.
 
-1. **`~/.config/voiceitt-bridge/env` file** (recommended):
-   ```bash
-   mkdir -p ~/.config/voiceitt-bridge
-   echo 'GOOGLE_API_KEY=your_actual_key_here' >> ~/.config/voiceitt-bridge/env
-   chmod 600 ~/.config/voiceitt-bridge/env
-   ```
+Packaged prompts in `prompts/*.md` are defaults. Prompt edits and new prompts are stored locally under ignored `prompts/user/`; archiving moves user files out of the active inventory. Active selection is backend-owned for the current server process.
 
-2. **Shell environment**:
-   - If you've already exported `GOOGLE_API_KEY` in `.zshrc` / `.bashrc`, Raycast inherits it on launch
-   - Note: The env file is sourced after shell env, so file values win if both are set
+`GET /api/transforms/recent` exposes a bounded in-process list of status, provider/model, prompt hash, source, duration, and input/output lengths. It contains no raw or cleaned transcript text and is cleared when the server restarts.
 
-If the key is missing, expired, or invalid, `bridge/voiceitt-transform.py`
-exits non-zero and the `send-to-*` script falls back to pasting the raw
-transcript (fail-open behavior). There's no user-visible indication of
-this in MVP — check `~/.config/voiceitt-bridge/server.log` for stderr if
-pastes look unexpectedly raw.
+## Raycast hotkeys
 
----
+| Command | Target behavior |
+|---|---|
+| `open-voiceitt.sh` | Starts the app with `uv` and opens or raises the Chrome scratchpad |
+| `send-to-iterm.sh` | Writes outgoing text directly to the current iTerm session; does not press Return |
+| `send-to-supacode.sh` | Pastes outgoing text into Supacode and restores the text clipboard |
+| `send-to-vscode.sh` | Pastes outgoing text into VS Code and restores the text clipboard |
 
-## 📎 Clipboard Hygiene (Important!)
+Assign a distinct Raycast hotkey to each send command. Fixed targets are intentional: Raycast takes focus when invoked, so inferring the previously focused application is not dependable.
 
-Every `send-to-*` hotkey under the clipboard ritual pollutes clipboard-history tools. To prevent this immediately:
+### Adding a target command
 
-**Raycast → Settings → Extensions → Clipboard History → Excluded Apps → add Raycast.**
+Find the app bundle ID and generate a command from the existing safe clipboard pattern:
 
-This stops Raycast's own clipboard history from logging every dictation transition. The iTerm `write text` strategy in `raycast/send-to-iterm.sh` further reduces pollution by bypassing the clipboard entirely.
+```bash
+osascript -e 'id of application "App Name"'
+scripts/add-raycast-target.sh \
+  --name "App Name" \
+  --bundle-id "com.example.App" \
+  --icon "📤"
+```
 
----
+Use `--no-install` to create the script without symlinking it, or `--overwrite` to replace an existing generated target. Assign the new command a Raycast hotkey and test it with Sticky Keys enabled.
 
-## ⌨️ Hotkeys (MVP)
+## Privacy and safety
 
-| Script | Purpose | Paste Strategy |
-|--------|---------|----------------|
-| `raycast/open-voiceitt.sh` | Open the scratchpad (raises existing Chrome window if found; else starts `bridge/serve.py` on `:7531` and opens a new window) | — |
-| `raycast/load-file-to-scratchpad.sh` | macOS open-panel → `POST /load` into the scratchpad | — |
-| `raycast/send-to-iterm.sh` | Cleanup-at-send → iTerm `write text … newline NO` | Bypasses clipboard |
-| `raycast/send-to-supacode.sh` | Cleanup-at-send → Supacode via clipboard + cliclick Cmd+V | Clipboard (transient) |
-| `raycast/send-to-vscode.sh` | Cleanup-at-send → VS Code via clipboard + cliclick Cmd+V | Clipboard (transient) |
+- The app binds locally; dictated text is sent to Google only when AI is enabled and a Gemini transform runs.
+- API keys remain in the server environment or local config file, never browser storage.
+- Cleanup is fail-open: raw text remains available when transformation fails.
+- Transform diagnostics are metadata-only, bounded, non-durable, and best-effort.
+- Clipboard target commands restore the previous text clipboard after pasting. Clipboard-history utilities can still observe the transient outgoing value; consider excluding Raycast from clipboard history. iTerm avoids the clipboard entirely.
+- Send commands refuse to paste when backend outgoing state is empty or unavailable, preventing stale clipboard content from being sent.
 
-### Adding preferred app hotkeys
+## Limitations
 
-Each preferred target app needs its own `send-to-*` Raycast Script Command
-and hotkey. Do not use one generic dispatcher: Raycast takes focus when a
-hotkey fires, so the target app must be fixed ahead of time.
+- Voiceitt requires Chrome and an HTTP-served page; other browsers are not the supported dictation path.
+- The service is local and single-user. Scratchpad state, active prompt selection, and diagnostics reset on restart.
+- Only Gemini is implemented as a cleanup provider.
+- Clipboard restoration preserves text, not arbitrary rich clipboard formats, and clipboard managers may capture transient content.
+- macOS Accessibility and per-target Automation permissions require manual approval.
+- Send commands insert text but do not press Return or otherwise submit it.
 
-1. Find the app's bundle id:
-   ```bash
-   osascript -e 'id of application "App Name"'
-   ```
+## Development
 
-2. Generate and install the Raycast command:
-   ```bash
-   scripts/add-raycast-target.sh --name "App Name" --bundle-id "com.example.App" --icon "📤"
-   ```
+```bash
+uv sync
+uv run uvicorn --app-dir src voiceitt_bridge.app:app --host 127.0.0.1 --port 7532
+scripts/smoke-test.sh
+uv run pytest
+```
 
-   This creates `raycast/send-to-app-name.sh` from the VS Code clipboard
-   paste pattern and symlinks it into `~/.config/raycast/scripts/`. Use
-   `--no-install` if you only want to generate the repo file, or
-   `--overwrite` if you intentionally want to replace an existing target
-   script.
+For side-by-side static-page/API development, `scripts/dev-services.sh` supports `start`, `stop`, `restart`, `status`, and `logs`.
 
-3. In Raycast, assign a hotkey to the new "Send to App Name" command.
+## Troubleshooting
 
-4. On first use, accept the macOS Automation prompt allowing Raycast to
-   control that app. Then smoke-test with Sticky Keys ON: dictate into
-   the scratchpad, fire the hotkey, and confirm the text lands in the
-   target app.
+**The scratchpad does not open:** ensure `uv` is installed and port 7532 is free. Check `~/.config/voiceitt-bridge/server.log`.
 
----
+**A send command reports no outgoing text:** open the scratchpad, enter or dictate text, and confirm the header shows the API as available. The command intentionally will not fall back to focused-window scraping.
 
-## 🚫 What's Not in This MVP
+**Text stays raw with AI on:** verify the key in `~/.config/voiceitt-bridge/env`, restart the server, and inspect the server log. Provider failures intentionally return raw text.
 
-Explicitly out of scope (see [PROJECT-SPEC.md](./PROJECT-SPEC.md) for full list):
-- The FastAPI re-architecture: the FastAPI app and the `src/voiceitt_bridge/` package (MVP may still use `uv`, `pyproject.toml`, and tests — what's deferred is the package rewrite, not Python deps)
-- The `clipboard-restore` save-and-restore wrapper around the clipboard ritual (next PR)
-- Any Raycast Extension work (post-MVP+)
-- Prompt-picker UI (post-MVP+)
-- Multi-provider LLM dispatch (post-MVP+; design-time only)
+**Paste does not reach the target:** confirm Raycast has Accessibility access, approve its Automation permission for that app, verify `/opt/homebrew/bin/cliclick` exists, and test the app-specific hotkey again.
 
----
+**Raycast cannot find commands:** verify the symlinks in `~/.config/raycast/scripts/` or rerun `scripts/install.sh`.
 
-## ⚠️ Known Limitations (MVP)
-
-These gaps are intentional for MVP; each is addressed by post-MVP work:
-- **No user-visible feedback when cleanup fails** — if `bridge/voiceitt-transform.py` errors, times out, or sees a missing `GOOGLE_API_KEY`, the `send-to-*` script silently falls back to pasting the raw transcript. Check `~/.config/voiceitt-bridge/server.log` for the transform's stderr if a paste looks unexpectedly raw.
-- **No way to switch cleanup prompts at runtime** — `prompts/default.md` is always used
-- **No in-page preview-and-edit before sending** — the hotkey fires immediately
-- **No diff UI showing raw vs. cleaned** — when the LLM rewrites something you meant literally, you must manually re-dictate
-- **Clipboard pollution from non-iTerm targets** — mitigated today by adding Raycast to Clipboard History exclusions (see above)
-
----
-
-## 📚 Reference Material
-
-- [PROJECT-SPEC.md](./PROJECT-SPEC.md) — current project spec, non-negotiables, answered decisions, and MVP/post-MVP split
-- [salvage/README.md](./salvage/README.md) — index of verbatim artifacts carried over from the prototype
-- [salvage/notes/LESSONS-LEARNED.md](./salvage/notes/LESSONS-LEARNED.md) — 37 numbered "we already tried that" entries
-- [salvage/snippets/cliclick-paste-ritual.md](./salvage/snippets/cliclick-paste-ritual.md) — source of truth for any new `send-to-*` paste step
-
----
-
-## 🆘 Troubleshooting
-
-**Nothing happens when I use a send-to-* hotkey:**
-1. Check if the Voiceitt scratchpad is open and has dictated text
-2. Verify `GOOGLE_API_KEY` is set correctly (see Configuration section)
-3. Look at `~/.config/voiceitt-bridge/server.log` for error messages
-4. Ensure you've granted Automation permissions to Raycast for the target app
-
-**The pasted text looks exactly like my raw dictation (not cleaned):**
-This usually means the Gemini API call failed. Check `~/.config/voiceitt-bridge/server.log` for details about the failure.
-
-**Raycast can't find my scripts:**
-1. Verify you created the symlinks correctly in `~/.config/raycast/scripts/`
-2. Try running `ls -la ~/.config/raycast/scripts/` to see if the symlinks exist and point to the right place
+**Clipboard history contains dictation:** restoration cannot prevent clipboard managers observing transient values. Exclude Raycast in Raycast Settings → Extensions → Clipboard History, or use the direct iTerm command.

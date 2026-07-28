@@ -90,12 +90,9 @@ from pathlib import Path
 template_path, target_path, app_name, bundle_id, icon = sys.argv[1:]
 text = Path(template_path).read_text()
 
-text = text.replace("# @raycast.title Send to VS Code", f"# @raycast.title Send to {app_name}")
 text = text.replace("# @raycast.icon 🟦", f"# @raycast.icon {icon}")
-text = text.replace("Then synthetic Cmd+V into VS Code.", f"Then synthetic Cmd+V into {app_name}.")
 text = text.replace('TARGET_BUNDLE_ID="com.microsoft.VSCode"', f'TARGET_BUNDLE_ID="{bundle_id}"')
-text = text.replace('with title "Send to VS Code"', f'with title "Send to {app_name}"')
-text = text.replace("# 8) Activate the target app", "# 8) Activate the target app")
+text = text.replace("VS Code", app_name)
 
 Path(target_path).write_text(text)
 PY

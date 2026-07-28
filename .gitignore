@@ -3,6 +3,10 @@
 
 # Python generated files
 __pycache__/
+**/__pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+
+# Local user-authored prompt overrides; packaged prompts live in prompts/*.md.
+prompts/user/

@@ -5,29 +5,29 @@
 # @raycast.mode silent
 # @raycast.packageName Voiceitt
 # @raycast.icon 🪟
-# @raycast.description Start the in-repo bridge HTTP server (serving web/) and open the Voiceitt Scratchpad in Chrome. Raises the existing window if already open. Required because Voiceitt only attaches to http:// origins.
+# @raycast.description Start Voiceitt Bridge and open the scratchpad in Chrome. Raises the existing window if already open. Required because Voiceitt only attaches to http:// origins.
+
+set -e
+
+# Raycast can launch with a sparse PATH; include the usual Homebrew
+# locations so `uv` is found on both Apple Silicon and Intel Macs.
+PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 # Resolve this script's real directory (follows symlinks) so we can find
-# the repo root — bridge/serve.py, bridge/voiceitt-transform.py, and web/ —
-# regardless of where Raycast symlinked the script from. Matches the realpath pattern
-# the send-to-*.sh scripts use.
+# the repo root regardless of where Raycast symlinked the script from.
+# Matches the realpath pattern the send-to-*.sh scripts use.
 SCRIPT_REAL="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$0")"
 SCRIPT_DIR="$(dirname "$SCRIPT_REAL")"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 
-# In-repo runtime paths. The prototype-era version of this script
-# referenced $HOME/.config/voiceitt-bridge/serve.py from a symlink
-# farm; the MVP carries serve.py forward into bridge/ so the repo is
-# standalone.
-SERVE_PY="$REPO_DIR/bridge/serve.py"
-WEB_DIR="$REPO_DIR/web"
-TRANSFORM_CMD="$REPO_DIR/bridge/voiceitt-transform.py"
+# Daily scratchpad use runs on the FastAPI app.
+UV_BIN="$(command -v uv || true)"
 
 # Runtime config dir holds the env file (GOOGLE_API_KEY) and the
 # rolling server log. Same layout as the prototype so existing users
 # don't need to move their env file.
 PAD_DIR="${VOICEITT_BRIDGE_CONFIG:-$HOME/.config/voiceitt-bridge}"
-PAD_PORT="${VOICEITT_BRIDGE_PORT:-7531}"
+PAD_PORT="${VOICEITT_API_PORT:-7532}"
 PAD_TITLE="Voiceitt Scratchpad"
 LOG_FILE="$PAD_DIR/server.log"
 ENV_FILE="$PAD_DIR/env"
@@ -45,13 +45,10 @@ case "${VOICEITT_AI_MODE:-}" in
 esac
 PAD_URL="http://localhost:${PAD_PORT}/index.html${PAD_QUERY}"
 
-# Source $PAD_DIR/env so GOOGLE_API_KEY lands in the bridge server's
-# env (and is inherited by voiceitt-transform subprocesses spawned
-# from POST /transform). Required even though the MVP cleanup path
-# goes through send-to-*.sh — the in-page AI toggle still hits
-# POST /transform if the user enables it, and the same env is needed.
-# Lesson 16: file-sourcing is more reliable than Raycast inheriting
-# the user's shell rc on early-boot launches.
+# Source $PAD_DIR/env so GOOGLE_API_KEY reaches the app. File-sourcing is
+# more reliable than Raycast inheriting the user's shell rc on early-boot
+# launches. The provider also falls back
+# to this file, but sourcing keeps logs and child processes consistent.
 if [ -f "$ENV_FILE" ]; then
   set -a
   # shellcheck disable=SC1090
@@ -86,24 +83,22 @@ if [ "$ALREADY_OPEN" = "true" ]; then
   exit 0
 fi
 
-# 2) Make sure our bridge HTTP server is running on $PAD_PORT.
-#    VOICEITT_BRIDGE_DIR is hinted at web/ so the page is served
-#    from the repo (the serve.py default is the prototype-era
-#    ~/.config/voiceitt-bridge — fine for "poke by hand", not the
-#    MVP path). VOICEITT_TRANSFORM_CMD points at this repo's
-#    voiceitt-transform so POST /transform shells out correctly.
+# 2) Make sure the app is running on $PAD_PORT.
 if ! lsof -iTCP:"$PAD_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
-  if [ ! -f "$SERVE_PY" ]; then
-    osascript -e "display notification \"bridge/serve.py not found at $SERVE_PY\" with title \"Open Voiceitt Scratchpad\""
+  if [ -z "$UV_BIN" ]; then
+    osascript -e 'display notification "uv not found on PATH; install uv or add it to Raycast PATH." with title "Open Voiceitt Scratchpad"'
     exit 1
   fi
 
-  nohup env VOICEITT_BRIDGE_PORT="$PAD_PORT" \
-            VOICEITT_BRIDGE_DIR="$WEB_DIR" \
-            VOICEITT_TRANSFORM_CMD="$TRANSFORM_CMD" \
-    python3 "$SERVE_PY" \
-    >>"$LOG_FILE" 2>&1 </dev/null &
-  disown 2>/dev/null || true
+  (
+    cd "$REPO_DIR"
+    nohup env VOICEITT_BRIDGE_PORT="$PAD_PORT" \
+      "$UV_BIN" run uvicorn --app-dir src voiceitt_bridge.app:app \
+        --host 127.0.0.1 \
+        --port "$PAD_PORT" \
+      >>"$LOG_FILE" 2>&1 </dev/null &
+    disown 2>/dev/null || true
+  )
 
   # Wait briefly for it to bind.
   for i in 1 2 3 4 5 6 7 8 9 10; do
@@ -118,13 +113,10 @@ if ! lsof -iTCP:"$PAD_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
     exit 1
   fi
 else
-  # Port already in use. Probe /index.html — if it doesn't respond,
-  # something other than this repo's server is on the port (most
-  # likely the prototype's serve.py serving dictate.html out of
-  # ~/.config/voiceitt-bridge/). Bail loudly instead of opening
-  # Chrome at a URL that will 404.
-  if ! curl -s -f -o /dev/null "http://localhost:$PAD_PORT/index.html"; then
-    osascript -e "display notification \"port $PAD_PORT is busy but not serving this repo's web/index.html. The prototype's serve.py may still be running — kill it, or set VOICEITT_BRIDGE_PORT to a free port.\" with title \"Open Voiceitt Scratchpad\""
+  # Port already in use. Probe the health endpoint so we do not
+  # accidentally open a prototype server or an unrelated local service.
+  if ! curl -s -f -o /dev/null "http://localhost:$PAD_PORT/api/health"; then
+    osascript -e "display notification \"port $PAD_PORT is busy but not serving Voiceitt Bridge. Set VOICEITT_API_PORT to a free port or stop the other service.\" with title \"Open Voiceitt Scratchpad\""
     exit 1
   fi
 fi

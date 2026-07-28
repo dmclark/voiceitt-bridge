@@ -3,16 +3,32 @@ const padOut = document.getElementById('pad-out');
 const clearBtn = document.getElementById('clear');
 const statusEl = document.getElementById('status');
 const aiToggle = document.getElementById('ai-toggle');
+const promptPicker = document.getElementById('prompt-picker');
+const promptManagerToggle = document.getElementById('prompt-manager-toggle');
+const promptManager = document.getElementById('prompt-manager');
+const promptManagerList = document.getElementById('prompt-manager-list');
+const promptNewBtn = document.getElementById('prompt-new');
+const promptSetActiveBtn = document.getElementById('prompt-set-active');
+const promptArchiveBtn = document.getElementById('prompt-archive');
+const promptManagerStatus = document.getElementById('prompt-manager-status');
+const promptIdInput = document.getElementById('prompt-id');
+const promptEditor = document.getElementById('prompt-editor');
+const promptValidateBtn = document.getElementById('prompt-validate');
+const promptSaveBtn = document.getElementById('prompt-save');
+const promptValidation = document.getElementById('prompt-validation');
+const previewStatus = document.getElementById('preview-status');
+const apiHealthStatus = document.getElementById('api-health-status');
+const apiPromptsLink = document.getElementById('api-prompts-link');
+const apiDocsLink = document.getElementById('api-docs-link');
 const fauxCaret = document.getElementById('faux-caret');
 
 /*
  * ===========================================================
- *  AI master toggle (ERD §1.0)
+ *  AI master toggle
  * ===========================================================
  *
- * Default-off opt-in for LLM post-processing. Inverts the §1.3
- * MVP behaviour (which auto-fired on every utterance) so the
- * baseline cost of dictating is zero LLM calls. Persisted to
+ * Default-off opt-in for LLM post-processing, so the baseline cost of
+ * dictating is zero LLM calls. Persisted to
  * localStorage so the choice survives reloads. ⌘↵ in the input
  * pane stays as a one-shot override that fires the transform
  * once regardless of the toggle state — useful for "try the
@@ -31,26 +47,6 @@ if (aiParam === '0' || aiParam === '1') {
 let aiEnabled = localStorage.getItem(AI_TOGGLE_KEY) === '1';
 aiToggle.checked = aiEnabled;
 
-/*
- * Server-side mirror of the toggle, for the bash send-to-*.sh
- * scripts to curl. The bash side has no DOM access, so without this
- * the cleanup-at-send wiring in send-to-vscode.sh / send-to-iterm.sh
- * runs voiceitt-transform unconditionally — even when the user has
- * opted out via this toggle. Push on initial load (so the server
- * mirror matches localStorage from the very first hotkey) and on
- * every flip (toggle handler below). Fire-and-forget: errors are
- * logged but never block the page; bash side defaults to "0" / paste
- * raw on any curl failure, which matches the AI-off semantic anyway.
- */
-function pushAiState() {
-  fetch('/ai-state', {
-    method: 'POST',
-    headers: {'content-type': 'text/plain'},
-    body: aiEnabled ? '1' : '0',
-  }).catch((err) => console.warn('POST /ai-state failed', err));
-}
-pushAiState();
-
 // Body class drives the CSS that hides #pane-out when AI is off.
 // Kept as a body class (rather than inline style on #pane-out)
 // so future visibility-coupled rules — e.g. dimming the status
@@ -62,8 +58,7 @@ applyAiVisibility();
 
 // Default focus into the top (Dictated) pane so Voiceitt has somewhere
 // to write. We do NOT force focus back to it on every click anymore
-// (ERD §1.3 makes the bottom pane editable, so users need to be able
-// to click into it).
+// because the editable bottom pane must keep focus when selected.
 //
 // Window-level focus re-snaps to pad ONLY if no textarea currently
 // has focus. That covers the "freshly-restored Chrome window" case
@@ -77,19 +72,25 @@ window.addEventListener('focus', () => {
     refocus();
   }
 });
+window.addEventListener('blur', () => {
+  // Raycast send hotkeys move focus out of Chrome. The textarea can
+  // otherwise remain `document.activeElement` in the background tab,
+  // which leaves Voiceitt's visual recording affordance looking active
+  // after the mic has audibly stopped. Explicitly blur on window loss;
+  // the focus handler above re-arms the dictation pane when Chrome is
+  // brought back.
+  if (document.activeElement instanceof HTMLTextAreaElement) {
+    document.activeElement.blur();
+  }
+});
 setTimeout(refocus, 0);
 
 function clearAll() {
   pad.value = ''; padOut.value = '';
   lastInputSentToLLM = '';
+  setPreviewStatus('');
   setStatus(aiEnabled ? 'idle' : 'off');
-  // Drop the loaded-file strip too — Clear means "back to a blank
-  // scratchpad", which includes forgetting the just-loaded filename.
-  // Server-side state (in-memory _loaded slot) is intentionally NOT
-  // touched: a fresh page load shouldn't resurrect cleared text, but
-  // we also can't usefully PUT empty state from here without a new
-  // endpoint, so we just clear the local view.
-  hideLoadedStrip();
+  pushScratchpadState('empty');
   refocus(); updateFauxCaret();
 }
 clearBtn.addEventListener('click', clearAll);
@@ -107,10 +108,9 @@ window.addEventListener('keydown', (e) => {
 
 /*
  * ===========================================================
- *  §1.3 — auto-trigger + manual ⌘↵ trigger
+ *  Auto-trigger + manual ⌘↵ trigger
  * ===========================================================
  *
- * Auto-trigger: ROADMAP §1 "Trigger mechanics" established that
  * Voiceitt commits each utterance via `execCommand('insertHTML')`,
  * which fires:
  *   1. a synthetic (`isTrusted: false`) `paste` ClipboardEvent
@@ -127,8 +127,7 @@ window.addEventListener('keydown', (e) => {
  * the transform even if `inputField.value === lastInputSentToLLM`
  * (otherwise re-runs after manual tweaks would be no-ops).
  *
- * `lastInputSentToLLM` lets a future "↻ Re-run" button (ERD §1.2)
- * gate its disabled state without further plumbing.
+ * `lastInputSentToLLM` also prevents duplicate transform calls.
  */
 const TRANSFORM_DEBOUNCE_MS = 700;
 
@@ -136,11 +135,494 @@ let voiceittWriting = false;
 let lastInputSentToLLM = '';
 let debounceTimer = null;
 let inFlight = null;
+let transformRunId = 0;
+let activePromptId = '';
+let apiBase = '';
+let apiAvailable = false;
+let promptInventory = [];
+let editingPromptId = '';
+let creatingPrompt = false;
 
 function setStatus(label, kind) {
   statusEl.textContent = label;
   statusEl.className = kind || '';
 }
+
+function setPreviewStatus(label) {
+  previewStatus.textContent = label ? '— ' + label : '';
+}
+
+/*
+ * ===========================================================
+ *  Preview API client
+ * ===========================================================
+ *
+ * The browser-visible API base is selectable with
+ * `?api=http://localhost:7532/api`, allowing independently configured
+ * local instances. Transform calls never fall back to an alternate
+ * endpoint: if the API is unavailable, the page fails open to raw text
+ * so the missing dependency remains visible.
+ */
+const API_BASE_STORAGE_KEY = 'voiceitt.apiBase';
+const API_DEFAULT_BASE_CANDIDATES = [
+  '/api',
+  'http://127.0.0.1:7532/api',
+  'http://localhost:7532/api',
+];
+const API_BASE_CANDIDATES = configuredApiBaseCandidates();
+const API_FETCH_TIMEOUT_MS = 1200;
+const API_HEALTH_POLL_MS = 5000;
+let apiDiscoveryInFlight = false;
+let apiHealthTimer = null;
+
+function configuredApiBaseCandidates() {
+  const configuredBase = configuredApiBase();
+  const candidates = configuredBase ? [configuredBase] : API_DEFAULT_BASE_CANDIDATES;
+  return candidates.filter((apiBase, index) => candidates.indexOf(apiBase) === index);
+}
+
+function configuredApiBase() {
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get('api');
+  if (fromUrl !== null) {
+    const normalized = normalizeApiBase(fromUrl);
+    if (normalized) localStorage.setItem(API_BASE_STORAGE_KEY, normalized);
+    else localStorage.removeItem(API_BASE_STORAGE_KEY);
+    return normalized;
+  }
+  return normalizeApiBase(localStorage.getItem(API_BASE_STORAGE_KEY) || '');
+}
+
+function normalizeApiBase(apiBase) {
+  const trimmed = apiBase.trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+  return trimmed.endsWith('/api') ? trimmed : trimmed + '/api';
+}
+
+async function fetchApiJson(resource, options) {
+  return fetchJsonFromApiBase(apiBase, resource, options);
+}
+
+function fetchApi(resource, options) {
+  return fetch(apiBase + resource, options);
+}
+
+async function fetchJsonFromApiBase(apiBase, resource, options) {
+  const controller = options && options.signal ? null : new AbortController();
+  const timeout = controller
+    ? setTimeout(() => controller.abort(), API_FETCH_TIMEOUT_MS)
+    : null;
+
+  try {
+    const response = await fetch(apiBase + resource, {
+      cache: 'no-store',
+      ...(options || {}),
+      signal: controller ? controller.signal : options.signal,
+      headers: {
+        ...(options && options.headers ? options.headers : {}),
+      },
+    });
+    if (!response.ok) throw new Error(apiBase + resource + ' HTTP ' + response.status);
+    return response.json();
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+async function fetchHealthFromApiBase(apiBase) {
+  return fetchJsonFromApiBase(apiBase, '/health');
+}
+
+async function fetchApiHealth() {
+  if (!apiBase) throw new Error('no API base discovered');
+  return fetchHealthFromApiBase(apiBase);
+}
+
+async function refreshApiHealth() {
+  if (!apiBase) {
+    initApi();
+    return;
+  }
+
+  try {
+    setApiHealthStatus(await fetchApiHealth());
+  } catch (err) {
+    console.info(apiBase + ' health unavailable', err);
+    apiBase = '';
+    apiAvailable = false;
+    promptPicker.disabled = true;
+    renderPromptManagerList();
+    setApiHealthStatus({status: 'offline'});
+  }
+}
+
+function startApiHealthPolling() {
+  if (apiHealthTimer) return;
+  apiHealthTimer = setInterval(refreshApiHealth, API_HEALTH_POLL_MS);
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitForApiDiscovery() {
+  const started = performance.now();
+  while (apiDiscoveryInFlight && performance.now() - started < API_FETCH_TIMEOUT_MS * API_BASE_CANDIDATES.length) {
+    await delay(50);
+  }
+}
+
+async function ensureApiAvailable() {
+  if (!apiAvailable && !apiDiscoveryInFlight) initApi();
+  if (!apiAvailable && apiDiscoveryInFlight) await waitForApiDiscovery();
+  if (!apiAvailable) throw new Error('API unavailable');
+}
+
+function renderPromptPicker(prompts, state) {
+  promptInventory = prompts;
+  promptPicker.innerHTML = '';
+  for (const prompt of prompts) {
+    const option = document.createElement('option');
+    option.value = prompt.id;
+    option.textContent = prompt.name || prompt.id;
+    option.title = prompt.path || prompt.id;
+    promptPicker.appendChild(option);
+  }
+  activePromptId = state.active_prompt_id || (prompts[0] && prompts[0].id) || '';
+  promptPicker.value = activePromptId;
+  promptPicker.disabled = prompts.length === 0;
+  renderPromptManagerList();
+}
+
+/*
+ * ===========================================================
+ *  Prompt management UI
+ * ===========================================================
+ *
+ * The top-bar picker is intentionally tiny because it is in the daily
+ * dictation path. The manager below is an explicit, collapsible control
+ * plane for API-backed authoring actions: list,
+ * read full text, validate, save, archive, and set active. It is still
+ * local-only browser JS; prompt writes stay server-side so the page never
+ * learns secrets or writes files directly.
+ */
+function setPromptManagerStatus(label, kind) {
+  promptManagerStatus.textContent = label;
+  promptManagerStatus.className = kind || '';
+}
+
+function setPromptValidation(messages, kind) {
+  const items = Array.isArray(messages) ? messages : [messages];
+  promptValidation.textContent = items.filter(Boolean).join('; ');
+  promptValidation.className = kind || '';
+}
+
+function selectedManagerPromptId() {
+  return promptManagerList.value || editingPromptId || activePromptId;
+}
+
+function promptExists(promptId) {
+  return promptInventory.some(prompt => prompt.id === promptId);
+}
+
+function renderPromptManagerList() {
+  promptManagerList.innerHTML = '';
+  for (const prompt of promptInventory) {
+    const option = document.createElement('option');
+    option.value = prompt.id;
+    option.textContent = prompt.id === activePromptId ? prompt.id + ' (active)' : prompt.id;
+    option.title = prompt.path || prompt.id;
+    promptManagerList.appendChild(option);
+  }
+
+  const hasPrompts = promptInventory.length > 0;
+  if (creatingPrompt) promptManagerList.selectedIndex = -1;
+  promptManagerList.disabled = !hasPrompts;
+  promptSetActiveBtn.disabled = !apiAvailable || creatingPrompt || !hasPrompts || selectedManagerPromptId() === activePromptId;
+  promptArchiveBtn.disabled = !apiAvailable || creatingPrompt || !hasPrompts;
+  promptValidateBtn.disabled = !apiAvailable;
+  promptSaveBtn.disabled = !apiAvailable;
+  if (!creatingPrompt && editingPromptId && promptExists(editingPromptId)) promptManagerList.value = editingPromptId;
+}
+
+async function refreshPromptsForUi(selectPromptId) {
+  await ensureApiAvailable();
+  const prompts = await fetchApiJson('/prompts');
+  const state = await fetchApiJson('/prompt-state');
+  renderPromptPicker(prompts, state);
+  if (selectPromptId && promptExists(selectPromptId)) {
+    promptManagerList.value = selectPromptId;
+    await loadPromptIntoEditor(selectPromptId);
+  }
+}
+
+async function loadPromptIntoEditor(promptId) {
+  if (!promptId) return;
+  setPromptValidation('');
+  setPromptManagerStatus('loading…');
+  const prompt = await fetchApiJson('/prompts/' + encodeURIComponent(promptId));
+  creatingPrompt = false;
+  editingPromptId = prompt.id;
+  promptIdInput.value = prompt.id;
+  promptEditor.value = prompt.system_text || '';
+  renderPromptManagerList();
+  setPromptManagerStatus(prompt.id === activePromptId ? 'loaded active prompt' : 'loaded', 'ok');
+}
+
+function startNewPrompt() {
+  creatingPrompt = true;
+  editingPromptId = '';
+  promptManagerList.value = '';
+  promptIdInput.value = '';
+  promptEditor.value = '';
+  setPromptManagerStatus('new prompt');
+  setPromptValidation('');
+  promptIdInput.focus();
+  renderPromptManagerList();
+}
+
+async function validatePromptEditor() {
+  await ensureApiAvailable();
+  const promptId = promptIdInput.value.trim();
+  if (!promptId) {
+    setPromptValidation('prompt id is required', 'warn');
+    return false;
+  }
+  const validation = await fetchApiJson('/prompts/validate', {
+    method: 'POST',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify({
+      id: promptId,
+      system_text: promptEditor.value,
+    }),
+  });
+  setPromptValidation(validation.ok ? 'valid' : validation.errors, validation.ok ? 'ok' : 'warn');
+  return validation.ok;
+}
+
+async function savePromptEditor() {
+  const promptId = promptIdInput.value.trim();
+  const isExistingPrompt = editingPromptId && editingPromptId === promptId && promptExists(promptId);
+  setPromptManagerStatus('saving…');
+  if (!(await validatePromptEditor())) {
+    setPromptManagerStatus('fix validation errors', 'warn');
+    return;
+  }
+
+  const response = await fetchApi(isExistingPrompt ? '/prompts/' + encodeURIComponent(promptId) : '/prompts', {
+    method: isExistingPrompt ? 'PUT' : 'POST',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify({
+      id: promptId,
+      system_text: promptEditor.value,
+    }),
+  });
+  if (!response.ok) throw new Error(await readablePromptError(response));
+
+  const saved = await response.json();
+  creatingPrompt = false;
+  editingPromptId = saved.id;
+  await refreshPromptsForUi(saved.id);
+  setPromptManagerStatus(isExistingPrompt ? 'saved' : 'created', 'ok');
+}
+
+async function setEditorPromptActive() {
+  const promptId = selectedManagerPromptId();
+  if (!promptId) return;
+  setPromptManagerStatus('setting active…');
+  const state = await fetchApiJson('/prompt-state', {
+    method: 'PUT',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify({
+      active_prompt_id: promptId,
+      updated_by: 'scratchpad-manager',
+    }),
+  });
+  activePromptId = state.active_prompt_id;
+  lastInputSentToLLM = '';
+  await refreshPromptsForUi(activePromptId);
+  promptPicker.value = activePromptId;
+  setPromptManagerStatus('active: ' + activePromptId, 'ok');
+}
+
+async function archiveEditorPrompt() {
+  const promptId = selectedManagerPromptId();
+  if (!promptId) return;
+  if (!window.confirm('Archive prompt "' + promptId + '"?')) return;
+  setPromptManagerStatus('archiving…');
+  const response = await fetchApi('/prompts/' + encodeURIComponent(promptId) + '/archive', {method: 'POST'});
+  if (!response.ok) throw new Error(await readablePromptError(response));
+  const state = await response.json();
+  activePromptId = state.active_prompt_id || '';
+  creatingPrompt = false;
+  editingPromptId = '';
+  promptIdInput.value = '';
+  promptEditor.value = '';
+  await refreshPromptsForUi(activePromptId);
+  setPromptManagerStatus('archived ' + promptId, 'ok');
+}
+
+async function readablePromptError(response) {
+  try {
+    const body = await response.clone().json();
+    if (Array.isArray(body.detail)) return body.detail.join('; ');
+    if (body.detail) return body.detail;
+  } catch (err) {
+    // Fall through to generic text below; malformed error bodies should
+    // not hide the original HTTP status from the user.
+  }
+  return 'HTTP ' + response.status + ' ' + (await response.text()).slice(0, 200);
+}
+
+function runPromptManagerAction(action) {
+  action().catch((err) => {
+    console.warn('prompt manager action failed', err);
+    setPromptManagerStatus('prompt action failed', 'warn');
+    setPromptValidation(err.message || String(err), 'warn');
+  });
+}
+
+promptManagerToggle.addEventListener('click', () => {
+  const willOpen = promptManager.hidden;
+  promptManager.hidden = !willOpen;
+  promptManagerToggle.textContent = willOpen ? 'Hide prompts' : 'Prompts';
+  promptManagerToggle.setAttribute('aria-expanded', String(willOpen));
+  if (willOpen) {
+    setPromptManagerStatus(apiAvailable ? 'open' : 'api unavailable', apiAvailable ? '' : 'warn');
+    runPromptManagerAction(async () => {
+      await refreshPromptsForUi(activePromptId);
+      if (activePromptId) await loadPromptIntoEditor(activePromptId);
+    });
+  }
+});
+promptManagerList.addEventListener('change', () => runPromptManagerAction(() => loadPromptIntoEditor(promptManagerList.value)));
+promptNewBtn.addEventListener('click', startNewPrompt);
+promptValidateBtn.addEventListener('click', () => runPromptManagerAction(validatePromptEditor));
+promptSaveBtn.addEventListener('click', () => runPromptManagerAction(savePromptEditor));
+promptSetActiveBtn.addEventListener('click', () => runPromptManagerAction(setEditorPromptActive));
+promptArchiveBtn.addEventListener('click', () => runPromptManagerAction(archiveEditorPrompt));
+promptIdInput.addEventListener('input', renderPromptManagerList);
+
+function updateApiLinks() {
+  if (!apiBase) return;
+  apiPromptsLink.href = apiBase + '/prompts/preview';
+  apiDocsLink.href = apiBase.replace(/\/api$/, '') + '/docs';
+}
+
+function setApiHealthStatus(health) {
+  const status = health && health.status ? health.status : 'unknown';
+  const apiLabel = apiBase ? ' @ ' + apiBase.replace(/^https?:\/\//, '') : '';
+  apiHealthStatus.textContent = 'api: ' + status + apiLabel;
+  apiHealthStatus.title = JSON.stringify({base: apiBase || null, ...(health || {status})});
+  apiHealthStatus.className = status === 'ok' ? 'ok' : 'warn';
+}
+
+async function initApi() {
+  if (apiDiscoveryInFlight) return;
+  apiDiscoveryInFlight = true;
+  for (const candidateApiBase of API_BASE_CANDIDATES) {
+    try {
+      const health = await fetchHealthFromApiBase(candidateApiBase);
+      const prompts = await fetchJsonFromApiBase(candidateApiBase, '/prompts');
+      const state = await fetchJsonFromApiBase(candidateApiBase, '/prompt-state');
+      apiBase = candidateApiBase;
+      apiAvailable = true;
+      setApiHealthStatus(health);
+      renderPromptPicker(prompts, state);
+      updateApiLinks();
+      apiDiscoveryInFlight = false;
+      pushScratchpadState(currentOutgoingKind());
+      startApiHealthPolling();
+      return;
+    } catch (err) {
+      console.info(candidateApiBase + ' prompt state unavailable', err);
+    }
+  }
+  apiBase = '';
+  apiAvailable = false;
+  promptPicker.disabled = true;
+  renderPromptManagerList();
+  setApiHealthStatus({status: 'offline'});
+  console.info('/api prompt state unavailable; transforms will fail open to raw text');
+  apiDiscoveryInFlight = false;
+  startApiHealthPolling();
+}
+
+promptPicker.addEventListener('change', async () => {
+  const previousPromptId = activePromptId;
+  activePromptId = promptPicker.value;
+  lastInputSentToLLM = '';
+  try {
+    const state = await fetchApiJson('/prompt-state', {
+      method: 'PUT',
+      headers: {'content-type': 'application/json'},
+      body: JSON.stringify({
+        active_prompt_id: activePromptId,
+        updated_by: 'scratchpad',
+      }),
+    });
+    activePromptId = state.active_prompt_id;
+    promptPicker.value = activePromptId;
+    renderPromptManagerList();
+    setStatus(aiEnabled ? 'prompt set' : 'off', aiEnabled ? 'ok' : '');
+  } catch (err) {
+    console.warn('PUT /api/prompt-state failed', err);
+    activePromptId = previousPromptId;
+    promptPicker.value = previousPromptId;
+    setStatus('prompt failed', 'warn');
+  }
+});
+
+/*
+ * ===========================================================
+ *  Scratchpad runtime state
+ * ===========================================================
+ *
+ * Raycast has a backend-owned read path for the text the page considers
+ * sendable. That breaks the old coupling where a
+ * send-to-* script had to refocus Chrome, Cmd+A/Cmd+C whatever textarea
+ * happened to be active, and hope it captured the intended pane. The
+ * browser still owns this state because it owns the textareas; the API
+ * mirrors the current AI toggle, raw dictation, and outgoing
+ * text for non-DOM clients.
+ */
+let scratchpadStateTimer = null;
+
+function currentOutgoingText() {
+  return aiEnabled ? padOut.value : pad.value;
+}
+
+function currentOutgoingKind() {
+  const outgoingText = currentOutgoingText();
+  if (!outgoingText) return 'empty';
+  if (!aiEnabled) return 'raw';
+  if (outgoingText === pad.value) return 'raw';
+  return 'edited';
+}
+
+function pushScratchpadState(outgoingKind) {
+  if (!apiAvailable || !apiBase) return;
+  fetchApi('/scratchpad-state', {
+    method: 'PUT',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify({
+      ai_enabled: aiEnabled,
+      raw_text: pad.value,
+      outgoing_text: currentOutgoingText(),
+      outgoing_kind: outgoingKind || currentOutgoingKind(),
+    }),
+  }).catch((err) => console.warn('PUT /api/scratchpad-state failed', err));
+}
+
+function scheduleScratchpadStatePush() {
+  clearTimeout(scratchpadStateTimer);
+  scratchpadStateTimer = setTimeout(() => pushScratchpadState(currentOutgoingKind()), 150);
+}
+
+pad.addEventListener('input', scheduleScratchpadStatePush);
+padOut.addEventListener('input', scheduleScratchpadStatePush);
+
+initApi();
 
 pad.addEventListener('paste', (e) => {
   if (!e.isTrusted) voiceittWriting = true;
@@ -162,7 +644,9 @@ pad.addEventListener('input', () => {
   // way the user expects ("send from whichever pane I'm in").
   if (!aiEnabled) {
     padOut.value = pad.value;
+    setPreviewStatus('raw');
     setStatus('off');
+    pushScratchpadState('raw');
     return;
   }
   scheduleTransform();
@@ -175,11 +659,11 @@ pad.addEventListener('input', () => {
 aiToggle.addEventListener('change', () => {
   aiEnabled = aiToggle.checked;
   localStorage.setItem(AI_TOGGLE_KEY, aiEnabled ? '1' : '0');
-  pushAiState();
   if (!aiEnabled) {
     clearTimeout(debounceTimer);
     if (inFlight) { inFlight.abort(); inFlight = null; }
     padOut.value = pad.value;
+    setPreviewStatus('raw');
     // Programmatic value assignment doesn't trigger native "scroll caret into view".
     // Ensure the caret stays visible if padOut has focus (though unlikely here
     // since we hide the pane immediately after).
@@ -194,9 +678,11 @@ aiToggle.addEventListener('change', () => {
     // Don't fire retroactively on whatever's already in pad —
     // wait for the next utterance (or ⌘↵) so enabling the toggle
     // is never surprisingly expensive.
+    setPreviewStatus('');
     setStatus('idle');
   }
   applyAiVisibility();
+  pushScratchpadState(currentOutgoingKind());
 });
 
 function scheduleTransform() {
@@ -206,36 +692,37 @@ function scheduleTransform() {
 
 async function runTransform() {
   const text = pad.value;
-  if (!text) { setStatus('idle'); return; }
+  if (!text) { setStatus('idle'); setPreviewStatus(''); return; }
   if (text === lastInputSentToLLM) return;
   lastInputSentToLLM = text;
 
   // Cancel any in-flight call so the freshest dictation always wins.
   if (inFlight) inFlight.abort();
-  inFlight = new AbortController();
+  const controller = new AbortController();
+  inFlight = controller;
+  const runId = ++transformRunId;
 
   setStatus('transforming…', 'busy');
   try {
-    const r = await fetch('/transform', {
-      method: 'POST',
-      headers: {'content-type': 'application/json'},
-      body: JSON.stringify({text}),
-      signal: inFlight.signal,
-    });
-    if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + (await r.text()).slice(0, 200));
-    const cleaned = await r.text();
+    await ensureApiAvailable();
+    const result = await requestTransform(text, controller.signal);
+    if (runId !== transformRunId) return;
+    const cleaned = result.cleanedText;
     // Debug visibility — open DevTools (⌥⌘I) → Console to see each
     // round-trip. Cheap, removable, makes "is the LLM doing nothing
     // vs is it returning something different I can't tell apart"
     // distinguishable.
-    console.log('[transform]', {input: text, output: cleaned, changed: cleaned !== text});
+    console.log('[transform]', {input: text, output: cleaned, changed: cleaned !== text, status: result.status});
     padOut.value = cleaned;
     // Programmatic value assignment doesn't trigger native "scroll caret into view"
     // like user keystrokes do. Ensure the caret stays visible if padOut has focus.
     if (document.activeElement === padOut) ensureCaretInView(padOut);
-    setStatus(cleaned === text ? 'ok (unchanged)' : 'ok', 'ok');
+    setPreviewStatus(describePreview(text, cleaned, result.status));
+    setStatus(describeTransformStatus(text, cleaned, result.status), result.ok ? 'ok' : 'warn');
+    pushScratchpadState(result.ok ? 'cleaned' : 'raw');
   } catch (err) {
     if (err.name === 'AbortError') return;
+    if (runId !== transformRunId) return;
     // Fail-open: never block the user. Drop the raw text into the
     // output pane so the existing send-script flow still works,
     // and surface that we did so.
@@ -244,11 +731,47 @@ async function runTransform() {
     // Programmatic value assignment doesn't trigger native "scroll caret into view"
     // like user keystrokes do. Ensure the caret stays visible if padOut has focus.
     if (document.activeElement === padOut) ensureCaretInView(padOut);
+    setPreviewStatus('raw fallback');
     setStatus('fail-open: raw', 'warn');
+    pushScratchpadState('raw');
   } finally {
-    inFlight = null;
+    if (inFlight === controller) inFlight = null;
     updateFauxCaret();
   }
+}
+
+async function requestTransform(text, signal) {
+  const r = await fetch(apiBase + '/transforms', {
+    method: 'POST',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify({
+      raw_text: text,
+      prompt_id: activePromptId || undefined,
+      source: 'scratchpad',
+    }),
+    signal,
+  });
+  if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + (await r.text()).slice(0, 200));
+  const body = await r.json();
+  activePromptId = body.prompt_id || activePromptId;
+  if (activePromptId && promptPicker.value !== activePromptId) promptPicker.value = activePromptId;
+  return {
+    cleanedText: body.cleaned_text,
+    status: body.status,
+    ok: body.status === 'ok',
+    failureReason: body.failure_reason,
+  };
+}
+
+function describePreview(rawText, cleanedText, status) {
+  if (status && status !== 'ok') return status.replace(/_/g, ' ');
+  if (rawText === cleanedText) return 'unchanged';
+  return rawText.length + ' → ' + cleanedText.length + ' chars';
+}
+
+function describeTransformStatus(rawText, cleanedText, status) {
+  if (status && status !== 'ok') return 'fail-open: raw';
+  return cleanedText === rawText ? 'ok (unchanged)' : 'ok';
 }
 
 // Manual trigger: ⌘↵ on the input field re-runs the transform,
@@ -267,7 +790,7 @@ pad.addEventListener('keydown', (e) => {
 });
 
 /*
- * Faux-caret positioning (ROADMAP §0.5.4 step 5).
+ * Faux-caret positioning.
  *
  * Build a hidden <div> that mirrors the textarea's box + text up to
  * `selectionStart`, terminated by a zero-width <span>. The span's
@@ -346,7 +869,7 @@ function ensureCaretInView(ta) {
 
 function updateFauxCaret() {
   const ta = document.activeElement;
-  if (!(ta instanceof HTMLTextAreaElement)) {
+  if (!(ta instanceof HTMLTextAreaElement) || (ta !== pad && ta !== padOut)) {
     fauxCaret.style.display = 'none';
     return;
   }
@@ -416,130 +939,3 @@ pad.addEventListener('transitionrun', trackTransition);
 padOut.addEventListener('transitionrun', trackTransition);
 
 requestAnimationFrame(updateFauxCaret);
-
-/*
- * ===========================================================
- *  Local-file loader (PARKING-LOT 2026-05-13 → graduated)
- * ===========================================================
- *
- * `scripts/load-file-to-scratchpad.sh` pops a macOS open-panel,
- * POSTs the chosen path to /load, and the server holds the file
- * contents in a single in-memory slot. This block:
- *
- *   - on page load, GETs /file once and populates the input pane
- *     if the slot is non-empty (so opening the scratchpad after
- *     the load still picks up the file);
- *   - keeps an EventSource open against /events; on `reload`
- *     re-fetches /file and swaps content live in the open tab.
- *
- * Direct `pad.value = ...` does NOT fire the auto-trigger
- * (voiceittWriting only latches on synthetic paste from Voiceitt's
- * insertHTML), so loading a file never costs an LLM call.
- */
-const loadedStrip = document.getElementById('loaded-strip');
-const loadedPath = document.getElementById('loaded-path');
-const loadBtn = document.getElementById('load');
-const filePicker = document.getElementById('file-picker');
-
-// 50 KB / UTF-8 / hide-on-clear caps mirror the server's POST /load
-// checks (see bridge/serve.py MAX_LOAD_BYTES). Browser path can't
-// enforce $HOME containment — the OS open-panel already restricts
-// what the user can pick, and there's no path leakage either way.
-const MAX_LOAD_BYTES = 50 * 1024;
-
-function showLoadedStrip(displayName, fullPath) {
-  loadedPath.textContent = displayName;
-  loadedStrip.title = fullPath || displayName;
-  loadedStrip.classList.add('shown');
-}
-function hideLoadedStrip() {
-  loadedStrip.classList.remove('shown');
-  loadedPath.textContent = '';
-  loadedStrip.title = '';
-}
-
-function applyLoadedFile(file) {
-  if (!file || !file.path) {
-    hideLoadedStrip();
-    return;
-  }
-  // basename only — full path lives in the title attr if curiosity strikes.
-  const base = file.path.split('/').pop() || file.path;
-  showLoadedStrip(base, file.path);
-  pad.value = file.text || '';
-  // Mirror into pad-out so an immediate send-to-* (when AI is off,
-  // pad-out is hidden but still the "outgoing" buffer in the AI-on
-  // case) reflects the just-loaded text instead of stale dictation.
-  padOut.value = pad.value;
-  // Reset the LLM dedupe gate so a manual ⌘↵ after edits actually fires.
-  lastInputSentToLLM = '';
-  refocus();
-  updateFauxCaret();
-}
-
-// Load… button → in-browser file picker. Reads via FileReader so
-// we never need the absolute path (which the browser won't tell us
-// anyway). For a server-side round-trip with a real path, use the
-// Raycast 'Load File into Scratchpad' command.
-loadBtn.addEventListener('click', () => filePicker.click());
-filePicker.addEventListener('change', () => {
-  const f = filePicker.files && filePicker.files[0];
-  if (!f) return;
-  if (f.size > MAX_LOAD_BYTES) {
-    setStatus('too large', 'warn');
-    filePicker.value = '';
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = () => {
-    // FileReader.readAsText silently replaces invalid UTF-8 with U+FFFD;
-    // detect that and refuse so the user isn't editing mojibake.
-    const text = reader.result;
-    if (typeof text !== 'string' || text.indexOf('\uFFFD') !== -1) {
-      setStatus('not UTF-8', 'warn');
-      filePicker.value = '';
-      return;
-    }
-    showLoadedStrip(f.name, f.name);
-    pad.value = text;
-    padOut.value = text;
-    lastInputSentToLLM = '';
-    setStatus(aiEnabled ? 'idle' : 'off');
-    refocus();
-    updateFauxCaret();
-    filePicker.value = '';  // allow re-picking the same file
-  };
-  reader.onerror = () => {
-    setStatus('read failed', 'warn');
-    filePicker.value = '';
-  };
-  reader.readAsText(f, 'utf-8');
-});
-
-async function fetchLoadedFile() {
-  try {
-    const r = await fetch('/file', {cache: 'no-store'});
-    if (!r.ok) return;
-    applyLoadedFile(await r.json());
-  } catch (err) {
-    console.warn('GET /file failed', err);
-  }
-}
-
-// Deliberately NOT calling fetchLoadedFile() on initial page load.
-// Page reload always starts clean (per the user's mental model: "a
-// reload starts with a clean slate"). Server-side _loaded state may
-// still be non-empty from a previous Raycast load, but it just sits
-// there unused — only the live SSE `reload` path surfaces it. The
-// Raycast loader assumes the scratchpad tab is already open.
-//
-// SSE: the server sends `event: reload` whenever /load succeeds.
-// EventSource auto-reconnects with backoff, so we don't need our own
-// retry loop — losing the connection just means the next /load won't
-// live-swap until the browser reopens it.
-try {
-  const es = new EventSource('/events');
-  es.addEventListener('reload', fetchLoadedFile);
-} catch (err) {
-  console.warn('EventSource unavailable; live reload disabled', err);
-}
