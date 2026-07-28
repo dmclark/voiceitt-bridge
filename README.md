@@ -2,6 +2,8 @@
 
 Voiceitt Bridge turns [Voiceitt](https://www.voiceitt.com/) dictation in Chrome into text you can review and send to local macOS apps with [Raycast](https://www.raycast.com/). It is the FastAPI-based successor to the [voiceitt-amp-bridge prototype](https://github.com/dmclark/voiceitt-amp-bridge).
 
+![Voiceitt Scratchpad showing dictated text and the cleaned text ready to paste](assets/voiceitt-scratchpad.png)
+
 ## Features
 
 - A local FastAPI-served Voiceitt scratchpad, with no frontend build step.
