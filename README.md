@@ -65,7 +65,7 @@ An exported `GOOGLE_API_KEY` takes precedence. Other runtime settings:
 |---|---|---|
 | `VOICEITT_API_PORT` | `7532` | FastAPI and scratchpad port |
 | `VOICEITT_API_BASE` | `http://127.0.0.1:$VOICEITT_API_PORT/api` | API used by send commands |
-| `VOICEITT_TRANSFORM_MODEL` | `gemini-3.1-flash-lite` | Gemini model |
+| `VOICEITT_TRANSFORM_MODEL` | `gemini-3.5-flash` | Gemini model |
 | `VOICEITT_BRIDGE_CONFIG` | `~/.config/voiceitt-bridge` | Runtime config directory |
 | `VOICEITT_AI_MODE` | unset | Open with AI forced off (`0`) or on (`1`) |
 
@@ -88,6 +88,7 @@ Packaged prompts in `prompts/*.md` are defaults. Prompt edits and new prompts ar
 | Command | Target behavior |
 |---|---|
 | `open-voiceitt.sh` | Starts the app with `uv` and opens or raises the Chrome scratchpad |
+| `send-to-amp.sh` | Pastes outgoing text into the AMP Chrome app and restores the text clipboard |
 | `send-to-iterm.sh` | Writes outgoing text directly to the current iTerm session; does not press Return |
 | `send-to-supacode.sh` | Pastes outgoing text into Supacode and restores the text clipboard |
 | `send-to-vscode.sh` | Pastes outgoing text into VS Code and restores the text clipboard |

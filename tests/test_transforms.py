@@ -60,6 +60,22 @@ class FailingTransformStore:
         raise RuntimeError("store locked")
 
 
+def test_gemini_provider_defaults_to_gemini_3_5_flash(monkeypatch) -> None:
+    monkeypatch.delenv("VOICEITT_TRANSFORM_MODEL", raising=False)
+
+    provider = GeminiTransformProvider(api_key="test-key")
+
+    assert provider.default_model == "gemini-3.5-flash"
+
+
+def test_gemini_provider_honors_model_override(monkeypatch) -> None:
+    monkeypatch.setenv("VOICEITT_TRANSFORM_MODEL", "configured-model")
+
+    provider = GeminiTransformProvider(api_key="test-key")
+
+    assert provider.default_model == "configured-model"
+
+
 def test_gemini_provider_reads_key_from_config_env_file(tmp_path, monkeypatch) -> None:
     config_dir = tmp_path / "config"
     config_dir.mkdir()

@@ -114,6 +114,7 @@ mkdir -p "$RAYCAST_DIR"
 # List of daily-use Raycast Script Commands to symlink.
 SCRIPTS_TO_SYMLINK=(
   open-voiceitt.sh
+  send-to-amp.sh
   send-to-iterm.sh
   send-to-supacode.sh
   send-to-vscode.sh
