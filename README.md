@@ -88,6 +88,7 @@ Packaged prompts in `prompts/*.md` are defaults. Prompt edits and new prompts ar
 | Command | Target behavior |
 |---|---|
 | `open-voiceitt.sh` | Starts the app with `uv` and opens or raises the Chrome scratchpad |
+| `send-to-amp.sh` | Pastes outgoing text into the AMP Chrome app and restores the text clipboard |
 | `send-to-iterm.sh` | Writes outgoing text directly to the current iTerm session; does not press Return |
 | `send-to-supacode.sh` | Pastes outgoing text into Supacode and restores the text clipboard |
 | `send-to-vscode.sh` | Pastes outgoing text into VS Code and restores the text clipboard |
