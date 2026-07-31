@@ -96,7 +96,7 @@ class GeminiTransformProvider:
         self.api_key = api_key if api_key is not None else _configured_google_api_key()
         self.default_model = default_model or os.environ.get(
             "VOICEITT_TRANSFORM_MODEL",
-            "gemini-3.1-flash-lite",
+            "gemini-3.5-flash",
         )
 
     async def transform(

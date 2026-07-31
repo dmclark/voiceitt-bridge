@@ -65,7 +65,7 @@ An exported `GOOGLE_API_KEY` takes precedence. Other runtime settings:
 |---|---|---|
 | `VOICEITT_API_PORT` | `7532` | FastAPI and scratchpad port |
 | `VOICEITT_API_BASE` | `http://127.0.0.1:$VOICEITT_API_PORT/api` | API used by send commands |
-| `VOICEITT_TRANSFORM_MODEL` | `gemini-3.1-flash-lite` | Gemini model |
+| `VOICEITT_TRANSFORM_MODEL` | `gemini-3.5-flash` | Gemini model |
 | `VOICEITT_BRIDGE_CONFIG` | `~/.config/voiceitt-bridge` | Runtime config directory |
 | `VOICEITT_AI_MODE` | unset | Open with AI forced off (`0`) or on (`1`) |
 
